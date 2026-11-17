@@ -7105,7 +7105,13 @@ async function fetchElev(lat, lon) {
     const p = pt.matrixTransform(m.inverse());
     const lon = SVG.ilon(p.x), lat = SVG.ilat(p.y);
     if (lon < 13.8 || lon > 24.5 || lat < 48.8 || lat > 55.2) return;
-    locSet({ name: '', desc: 'punkt wskazany na mapie', kind: 'punkt', lat: +lat.toFixed(5), lon: +lon.toFixed(5), A: null, keepA: true, zoom: false, src: 'mapa', aNote: 'Sprawdź wysokość terenu A dla wskazanego miejsca (przycisk „Pobierz A z internetu” lub wpisz).' });
+    const la = +lat.toFixed(5), lo = +lon.toFixed(5);
+    locSet({ name: '', desc: 'punkt wskazany na mapie', kind: 'punkt', lat: la, lon: lo, A: null, keepA: true, zoom: false, src: 'mapa', aNote: 'Wysokość A pozostawiono bez zmian (' + (isNum(S.loc.A) ? F(S.loc.A, 0) + ' m' : 'brak') + ') – sprawdź rzędną terenu dla wskazanego miejsca (pobieram z internetu…).' });
+    fetchElev(la, lo).then(A => {
+      if (S.loc.lat !== la || S.loc.lon !== lo) return;
+      if (!isNum(A)) { S.loc.aNote = 'Nie udało się pobrać wysokości (brak internetu) – wpisz rzędną terenu A dla wskazanego miejsca.'; changed(S.ui.tab === 'proj'); return; }
+      S.loc.A = A; S.loc.aNote = ''; S.loc.src = 'mapa; A: Copernicus DEM (Open-Meteo)'; locApply(); changed(true); toast('A = ' + A + ' m n.p.m. (Copernicus DEM, Open-Meteo)');
+    });
   });
   document.addEventListener('pointercancel', () => { drag = null; });
   document.addEventListener('wheel', e => {

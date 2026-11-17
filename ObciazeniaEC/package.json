@@ -1,0 +1,10 @@
+{
+  "name": "obciazenia-ec",
+  "version": "1.0.0",
+  "description": "ObciążeniaEC – zestawienie obciążeń wg PN-EN 1990 i PN-EN 1991 z Załącznikami krajowymi PL",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "test": "node --test test/engine.test.js"
+  }
+}
