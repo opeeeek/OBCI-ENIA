@@ -124,21 +124,31 @@ function layers(p, R, user) {
   if (!rows.length) return '';
   const tv = rows.map(x => x.mode === 'v' ? Math.max(num0(x.L.t), 0) : x.mode === 'rib' ? Math.max(num0(x.L.h), 0) : 0.6);
   const tot = tv.reduce((a, b) => a + b, 0) || 1;
-  const H = 150, sc = Math.min(120 / tot, 8);
-  let y = 14, s = '';
+  const sc = Math.min(130 / tot, 9);
+  let y = 10, s = '';
+  const centers = [];
   rows.forEach((x, i) => {
     const m = EC.matOf(x.L.m, user);
-    const h = Math.max(tv[i] * sc, 3);
+    const h = Math.max(tv[i] * sc, 2.5);
     const col = LCOL[m.grp] || '#cccccc';
     if (x.mode === 'rib') {
-      s += `<rect x="20" y="${y.toFixed(1)}" width="160" height="${h.toFixed(1)}" fill="none" class="lyr" stroke-dasharray="3 2"/>`;
-      for (let k = 0; k < 3; k++) s += `<rect x="${(34 + k * 54).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(6, num0(x.L.b) / Math.max(num0(x.L.a), 1) * 54).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" class="lyr"/>`;
-    } else s += `<rect x="20" y="${y.toFixed(1)}" width="160" height="${h.toFixed(1)}" fill="${col}" class="lyr"${x.mode === 'a' ? ' stroke-dasharray="2 2"' : ''}/>`;
-    s += `<text x="188" y="${(y + h / 2 + 3.5).toFixed(1)}">${i + 1}. ${esc(m.n.length > 28 ? m.n.slice(0, 27) + '…' : m.n)}</text>`;
-    s += `<text x="16" y="${(y + h / 2 + 3.5).toFixed(1)}" text-anchor="end" class="t2">${x.mode === 'v' ? F(x.L.t, 1) : x.mode === 'rib' ? F(x.L.h, 0) : ''}</text>`;
+      s += `<rect x="40" y="${y.toFixed(1)}" width="150" height="${h.toFixed(1)}" fill="none" class="lyr" stroke-dasharray="3 2"/>`;
+      for (let k = 0; k < 3; k++) s += `<rect x="${(52 + k * 50).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(6, num0(x.L.b) / Math.max(num0(x.L.a), 1) * 50).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" class="lyr"/>`;
+    } else s += `<rect x="40" y="${y.toFixed(1)}" width="150" height="${h.toFixed(1)}" fill="${col}" class="lyr"${x.mode === 'a' ? ' stroke-dasharray="2 2"' : ''}/>`;
+    centers.push({ c: y + h / 2, m, x, i });
     y += h;
   });
-  return fig(`<svg viewBox="0 0 360 ${Math.max(y + 12, 60).toFixed(0)}" role="img" aria-label="Przekrój przez warstwy">${s}</svg>`, `Przekrój przegrody (grubości w cm; warstwy o ciężarze powierzchniowym – symbolicznie)${R.alpha > 0 ? `; nachylenie α = ${F(R.alpha, 1)}°` : ''}`);
+  /* etykiety bez nakładania: minimalny odstęp 12 */
+  const ly = centers.map(o => o.c);
+  for (let i = 1; i < ly.length; i++) if (ly[i] < ly[i - 1] + 12) ly[i] = ly[i - 1] + 12;
+  const H = Math.max(y, ly.length ? ly[ly.length - 1] + 8 : y) + 8;
+  centers.forEach((o, i) => {
+    const nm = o.m.n.length > 34 ? o.m.n.slice(0, 33) + '…' : o.m.n;
+    s += `<path d="M190 ${o.c.toFixed(1)}L200 ${o.c.toFixed(1)}L206 ${ly[i].toFixed(1)}L212 ${ly[i].toFixed(1)}" fill="none" class="lyr"/>`;
+    s += `<text x="215" y="${(ly[i] + 3.5).toFixed(1)}">${i + 1}. ${esc(nm)}</text>`;
+    s += `<text x="34" y="${(ly[i] + 3.5).toFixed(1)}" text-anchor="end" class="t2">${o.x.mode === 'v' ? F(o.x.L.t, 1) : o.x.mode === 'rib' ? F(o.x.L.h, 0) : 'g'}</text>`;
+  });
+  return `<figure style="max-width:520px">${`<svg viewBox="0 0 420 ${H.toFixed(0)}" role="img" aria-label="Przekrój przez warstwy">${s}</svg>`}<figcaption>Przekrój przegrody – grubości w cm (warstwy o ciężarze powierzchniowym „g” – symbolicznie)${R.alpha > 0 ? `; nachylenie α = ${F(R.alpha, 1)}°` : ''}</figcaption></figure>`;
 }
 /* ---------- wiata ---------- */
 function canopy(duo, a) {
@@ -177,9 +187,9 @@ const GEO = (function () {
     });
   }
   let SN = null, WN = null, WJ = null, TW = null, GM = null;
-  const snow = () => SN || (SN = decode(root.GEO_SNOW, 1000));
-  const wind = () => WN || (WN = decode(root.GEO_WIND, 1000));
-  const woj = () => WJ || (WJ = root.GEO_WOJ.split('/').map(ring => { let x = 0, y = 0; return ring.split(' ').map(p => { const c = p.indexOf(','); x += +p.slice(0, c); y += +p.slice(c + 1); return [x / 100, y / 100]; }); }));
+  const snow = () => SN || (SN = decode(GEO_SNOW, 1000));
+  const wind = () => WN || (WN = decode(GEO_WIND, 1000));
+  const woj = () => WJ || (WJ = GEO_WOJ.split('/').map(ring => { let x = 0, y = 0; return ring.split(' ').map(p => { const c = p.indexOf(','); x += +p.slice(0, c); y += +p.slice(c + 1); return [x / 100, y / 100]; }); }));
   function inRing(x, y, r) { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const xi = r[i][0], yi = r[i][1], xj = r[j][0], yj = r[j][1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
   function distRing(x, y, r) { let bd = Infinity; const px = x * K, py = y; for (let i = 0; i < r.length - 1; i++) { const ax = r[i][0] * K, ay = r[i][1], bx = r[i + 1][0] * K, by = r[i + 1][1]; const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1e-12; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)); const d = Math.hypot(ax + t * dx - px, ay + t * dy - py); if (d < bd) bd = d; } return bd * 111.2; }
   function zoneIn(feats, x, y) {
@@ -193,12 +203,12 @@ const GEO = (function () {
   function label(code) { const p = parse(code); if (!p) return '—'; return p.zoneB ? ROM[p.zone] + '–' + ROM[p.zoneB] + ' (pas przejściowy)' : ROM[p.zone]; }
   function at(lon, lat) { const s = zoneIn(snow(), lon, lat), w = zoneIn(wind(), lon, lat); return { snow: s && s.code, wind: w && w.code, approx: !!((s && !s.exact) || (w && !w.exact)), outside: !s && !w }; }
   const norm = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-  function towns() { return TW || (TW = root.GEO_TOWNS.split('\n').map(l => { const a = l.split('|'); return { kind: 'miasto', n: a[0], pow: root.GEO_POW[+a[1]], woj: root.GEO_WOJL[+a[2]], lon: +a[3], lat: +a[4], A: +a[5], k: norm(a[0]) }; })); }
+  function towns() { return TW || (TW = GEO_TOWNS.split('\n').map(l => { const a = l.split('|'); return { kind: 'miasto', n: a[0], pow: GEO_POW[+a[1]], woj: GEO_WOJL[+a[2]], lon: +a[3], lat: +a[4], A: +a[5], k: norm(a[0]) }; })); }
   const GT = { 1: 'gmina miejska', 2: 'gmina wiejska', 3: 'gmina miejsko-wiejska' };
   function gminy() {
     if (GM) return GM;
     const tn = new Set(towns().map(t => t.k + '|' + t.woj));
-    GM = root.GEO_GMINY.split('\n').map(l => { const a = l.split('|'); return { kind: GT[a[1]] || 'gmina', t: a[1], n: a[0], pow: root.GEO_POW[+a[2]], woj: root.GEO_WOJL[+a[3]], lon: +a[4], lat: +a[5], A: null, s: a[6] ? a[6].split(',').map(z => 'S' + z) : [], w: a[7] ? a[7].split(',').map(z => 'W' + z) : [], k: norm(a[0]) }; }).filter(g => !(g.t === '1' && tn.has(g.k + '|' + g.woj)));
+    GM = GEO_GMINY.split('\n').map(l => { const a = l.split('|'); return { kind: GT[a[1]] || 'gmina', t: a[1], n: a[0], pow: GEO_POW[+a[2]], woj: GEO_WOJL[+a[3]], lon: +a[4], lat: +a[5], A: null, s: a[6] ? a[6].split(',').map(z => 'S' + z) : [], w: a[7] ? a[7].split(',').map(z => 'W' + z) : [], k: norm(a[0]) }; }).filter(g => !(g.t === '1' && tn.has(g.k + '|' + g.woj)));
     return GM;
   }
   function search(q, limit) {

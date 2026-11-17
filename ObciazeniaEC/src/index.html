@@ -199,7 +199,7 @@ table.t tr.tot td { font-weight: 700; border-top: 1px solid var(--line); }
 table.t .p { color: var(--press); } table.t .s { color: var(--suct); }
 .tw { overflow-x: auto; }
 .diag { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
-.diag figure { margin: 0; flex: 1 1 260px; border: 1px solid var(--line2); border-radius: 5px; padding: 6px; background: var(--panel2); }
+.diag figure { margin: 0; flex: 1 1 260px; max-width: 400px; border: 1px solid var(--line2); border-radius: 5px; padding: 6px; background: var(--panel2); }
 .diag figcaption { font-size: 11.5px; color: var(--ink3); margin-top: 3px; }
 .diag svg { width: 100%; height: auto; display: block; }
 svg text { font: 10px var(--ui); fill: var(--ink); }
@@ -216,6 +216,9 @@ svg .zn { fill: var(--suct); fill-opacity: .18; stroke: var(--suct); stroke-widt
 svg .lyr { stroke: var(--bldln); stroke-width: .8; }
 .pickrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel2); border-radius: 4px; border: 1px solid var(--line2); margin: 8px 0; }
 
+.bars { display: flex; height: 26px; border-radius: 4px; overflow: hidden; margin: 2px 0 4px; border: 1px solid var(--line2); }
+.bars span { display: grid; place-items: center; color: #fff; font: 600 11.5px var(--mono); overflow: hidden; white-space: nowrap; }
+.bars .G { background: var(--cG); } .bars .Q { background: var(--cQ); } .bars .S { background: var(--cS); } .bars .W { background: var(--cW); } .bars .T { background: var(--cT); }
 /* ---------- Σ – wybór oddziaływań */
 .vlist { display: flex; flex-direction: column; gap: 3px; }
 .vrow { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) minmax(0, 46%); gap: 6px; align-items: center; padding: 3px 4px; border-radius: 4px; }
@@ -407,8 +410,10 @@ svg .mk-h { fill: var(--fail); fill-opacity: .16; stroke: var(--fail); stroke-wi
 <script src="js/engine.js"></script>
 <script src="js/norm.js"></script>
 <script src="js/svg.js"></script>
-<script src="js/ui.js"></script>
+<script src="js/ui-core.js"></script>
+<script src="js/ui-tabs.js"></script>
 <script src="js/report.js"></script>
+<script src="js/main.js"></script>
 <!--/SCRIPTS-->
 </body>
 </html>
