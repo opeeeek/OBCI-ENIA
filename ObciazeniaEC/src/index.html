@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ObciążeniaEC</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cdefs%3E%3ClinearGradient id=%22oecg%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%232f6fd0%22/%3E%3Cstop offset=%221%22 stop-color=%22%2315336f%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x=%222%22 y=%222%22 width=%2260%22 height=%2260%22 rx=%2214%22 fill=%22url%28%23oecg%29%22/%3E%3Crect x=%229%22 y=%229%22 width=%2246%22 height=%226%22 rx=%221.5%22 fill=%22%23f6b52e%22/%3E%3Cg fill=%22%23f6b52e%22%3E%3Cpath d=%22M16.5 15h3v12h4.5L18 35l-6-8h4.5z%22/%3E%3Cpath d=%22M30.5 15h3v12h4.5L32 35l-6-8h4.5z%22/%3E%3Cpath d=%22M44.5 15h3v12h4.5L46 35l-6-8h4.5z%22/%3E%3C/g%3E%3Crect x=%226%22 y=%2238%22 width=%2252%22 height=%227%22 rx=%221.5%22 fill=%22%23ffffff%22/%3E%3Cpath d=%22M12 45h10l-5 8zM42 45h10l-5 8z%22 fill=%22%23bcd3ff%22/%3E%3Cpath d=%22M9 55.5h16M39 55.5h16%22 stroke=%22%23bcd3ff%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 <style id="appcss">/* ObciążeniaEC – układ dwupanelowy jak w BelkaŻB: dane po lewej, wyniki i schematy po prawej. */
 :root {
   --bg: #eef0f3; --panel: #ffffff; --panel2: #f7f8fa; --line: #d9dde3; --line2: #e8ebef;
@@ -219,6 +220,36 @@ svg .lyr { stroke: var(--bldln); stroke-width: .8; }
 .bars { display: flex; height: 26px; border-radius: 4px; overflow: hidden; margin: 2px 0 4px; border: 1px solid var(--line2); }
 .bars span { display: grid; place-items: center; color: #fff; font: 600 11.5px var(--mono); overflow: hidden; white-space: nowrap; }
 .bars .G { background: var(--cG); } .bars .Q { background: var(--cQ); } .bars .S { background: var(--cS); } .bars .W { background: var(--cW); } .bars .T { background: var(--cT); }
+/* ---------- schemat warstw (klikany) */
+.lywrap { border: 1px solid var(--line2); border-radius: 6px; background: var(--panel2); padding: 8px; margin: 0 0 10px; }
+.lyfig { margin: 0; }
+.lyfig figcaption { font-size: 11.5px; color: var(--ink3); margin-top: 4px; }
+svg.lysvg { width: 100%; height: auto; display: block; }
+svg.lysvg text { font: 13px var(--ui); fill: var(--ink); }
+svg.lysvg .t2 { fill: var(--ink3); }
+svg .lyb { stroke: var(--bldln); stroke-width: 1; }
+svg .lyl { fill: none; stroke: var(--ink3); stroke-width: .9; }
+svg.lysvg .lyn { font-weight: 600; }
+svg.lysvg .lyv { font-size: 12px; fill: var(--ink2); }
+svg.lysvg .lygv { font-weight: 700; fill: var(--ink); font-family: var(--mono); }
+svg.lysvg .lyt { font: 12px var(--mono); fill: var(--ink3); }
+svg.lysvg .lytot { font-weight: 700; font-size: 14px; }
+svg .lyhit { fill: transparent; }
+svg .lybg { fill: var(--acc2); stroke: var(--acc); stroke-width: 1; }
+svg [data-lay] { cursor: pointer; }
+svg [data-lay]:hover .lyb { stroke: var(--acc); stroke-width: 2.2; }
+svg [data-lay]:hover .lyn { fill: var(--acc); }
+svg .lysel .lyb { stroke: var(--ink); stroke-width: 2.8; }
+svg .lysel .lyn { fill: var(--acc3); }
+.layed { border: 1px solid var(--acc); border-radius: 6px; background: var(--acc2); padding: 8px 10px; margin: 0 0 10px; }
+.layed.empty { border-style: dashed; border-color: var(--line); background: var(--panel2); color: var(--ink3); font-size: 12.5px; }
+.layed .lyh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.layed .lyhv { margin-left: auto; font-family: var(--mono); }
+.layed .lyacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.layed input, .layed select { background: var(--field); }
+table.lay tr.lsel td { background: var(--acc2); }
+table.t tr[data-lay] { cursor: pointer; }
+table.t tr[data-lay]:hover td { background: var(--hover); }
 /* ---------- schematy wiatru */
 .wtools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 0 0 6px; }
 .wdirs button { font-weight: 600; padding: 5px 14px; }
@@ -388,7 +419,7 @@ svg .mk-h { fill: var(--fail); fill-opacity: .16; stroke: var(--fail); stroke-wi
 <body>
 <header id="top">
   <div class="brand">
-    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="3" style="fill:var(--brand1);stroke:var(--brand2)"/><path d="M7 21h18" stroke-width="2.2" style="stroke:var(--brand4)"/><path d="M9 9v9M13 9v9M17 9v9M21 9v9" stroke-width="1.4" style="stroke:var(--brand5)"/><path d="M8 16l1 2 1-2M12 16l1 2 1-2M16 16l1 2 1-2M20 16l1 2 1-2" fill="none" stroke-width="1.2" style="stroke:var(--brand5)"/><path d="M7 24l2 3M12 24l2 3M17 24l2 3M22 24l2 3" stroke-width="1.2" style="stroke:var(--brand3)"/></svg>
+    <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="oecgb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fd0"/><stop offset="1" stop-color="#15336f"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="14" fill="url(#oecgb)"/><rect x="9" y="9" width="46" height="6" rx="1.5" fill="#f6b52e"/><g fill="#f6b52e"><path d="M16.5 15h3v12h4.5L18 35l-6-8h4.5z"/><path d="M30.5 15h3v12h4.5L32 35l-6-8h4.5z"/><path d="M44.5 15h3v12h4.5L46 35l-6-8h4.5z"/></g><rect x="6" y="38" width="52" height="7" rx="1.5" fill="#ffffff"/><path d="M12 45h10l-5 8zM42 45h10l-5 8z" fill="#bcd3ff"/><path d="M9 55.5h16M39 55.5h16" stroke="#bcd3ff" stroke-width="2" stroke-linecap="round"/></svg>
     <b>ObciążeniaEC</b><span class="tag">PN-EN 1990 · 1991</span>
   </div>
   <input id="projName" title="Nazwa obiektu / projektu" aria-label="Nazwa obiektu" spellcheck="false">

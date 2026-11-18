@@ -119,36 +119,52 @@ function fwall(g) {
 }
 /* ---------- przekrój warstw ---------- */
 const LCOL = { bet: '#b8bec8', mur: '#d9a38f', met: '#8d99ae', drw: '#d6b77c', kam: '#a8a29a', tyn: '#e4dccb', pos: '#c9b79c', izo: '#f2e27a', hyd: '#4a4f57', plt: '#d5dbe3', grn: '#b39b76', naw: '#6b6f75', pok: '#b5523b', str: '#a9b0ba', scn: '#cfd6df', ele: '#e0e4ea', skl: '#c7c1b0', inn: '#9cc7e6', usr: '#cccccc' };
-function layers(p, R, user) {
+const fT = t => F(t, isNum(t) && Math.abs(t) < 0.1 && t !== 0 ? 2 : 1);
+function layers(p, R, user, sel, opt) {
+  opt = opt || {};
   const rows = R.rows || [];
   if (!rows.length) return '';
-  const tv = rows.map(x => x.mode === 'v' ? Math.max(num0(x.L.t), 0) : x.mode === 'rib' ? Math.max(num0(x.L.h), 0) : 0.6);
+  const tv = rows.map(x => x.mode === 'v' ? Math.max(num0(x.L.t), 0) : x.mode === 'rib' ? Math.max(num0(x.L.h), 0) : 0);
   const tot = tv.reduce((a, b) => a + b, 0) || 1;
-  const sc = Math.min(130 / tot, 9);
-  let y = 10, s = '';
-  const centers = [];
+  const sc = Math.min(260 / tot, 14);
+  const X0 = 70, X1 = 300, LX = 336;
+  let y = 14, s = '', lab = '';
+  const items = [];
   rows.forEach((x, i) => {
-    const m = EC.matOf(x.L.m, user);
-    const h = Math.max(tv[i] * sc, 2.5);
-    const col = LCOL[m.grp] || '#cccccc';
-    if (x.mode === 'rib') {
-      s += `<rect x="40" y="${y.toFixed(1)}" width="150" height="${h.toFixed(1)}" fill="none" class="lyr" stroke-dasharray="3 2"/>`;
-      for (let k = 0; k < 3; k++) s += `<rect x="${(52 + k * 50).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(6, num0(x.L.b) / Math.max(num0(x.L.a), 1) * 50).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" class="lyr"/>`;
-    } else s += `<rect x="40" y="${y.toFixed(1)}" width="150" height="${h.toFixed(1)}" fill="${col}" class="lyr"${x.mode === 'a' ? ' stroke-dasharray="2 2"' : ''}/>`;
-    centers.push({ c: y + h / 2, m, x, i });
+    const h = Math.max(tv[i] * sc, x.mode === 'a' ? 9 : 8);
+    items.push({ x, i, y, h, m: EC.matOf(x.L.m, user) });
     y += h;
   });
-  /* etykiety bez nakładania: minimalny odstęp 12 */
-  const ly = centers.map(o => o.c);
-  for (let i = 1; i < ly.length; i++) if (ly[i] < ly[i - 1] + 12) ly[i] = ly[i - 1] + 12;
-  const H = Math.max(y, ly.length ? ly[ly.length - 1] + 8 : y) + 8;
-  centers.forEach((o, i) => {
-    const nm = o.m.n.length > 34 ? o.m.n.slice(0, 33) + '…' : o.m.n;
-    s += `<path d="M190 ${o.c.toFixed(1)}L200 ${o.c.toFixed(1)}L206 ${ly[i].toFixed(1)}L212 ${ly[i].toFixed(1)}" fill="none" class="lyr"/>`;
-    s += `<text x="215" y="${(ly[i] + 3.5).toFixed(1)}">${i + 1}. ${esc(nm)}</text>`;
-    s += `<text x="34" y="${(ly[i] + 3.5).toFixed(1)}" text-anchor="end" class="t2">${o.x.mode === 'v' ? F(o.x.L.t, 1) : o.x.mode === 'rib' ? F(o.x.L.h, 0) : 'g'}</text>`;
+  const yEnd = y;
+  /* etykiety (2 wiersze) bez nakładania */
+  const ly = items.map(o => o.y + o.h / 2);
+  for (let i = 1; i < ly.length; i++) if (ly[i] < ly[i - 1] + 32) ly[i] = ly[i - 1] + 32;
+  items.forEach((o, i) => {
+    const { x, m } = o;
+    const col = LCOL[m.grp] || '#cccccc';
+    const on = sel && sel === x.L.id ? ' lysel' : '';
+    let g = '';
+    if (x.mode === 'rib') {
+      g += `<rect x="${X0}" y="${o.y.toFixed(1)}" width="${X1 - X0}" height="${o.h.toFixed(1)}" class="lyb" style="fill:none" stroke-dasharray="4 3"/>`;
+      const n = 4, step = (X1 - X0) / n;
+      for (let k = 0; k < n; k++) g += `<rect x="${(X0 + 14 + k * step).toFixed(1)}" y="${o.y.toFixed(1)}" width="${Math.max(8, num0(x.L.b) / Math.max(num0(x.L.a), 1) * step).toFixed(1)}" height="${o.h.toFixed(1)}" fill="${col}" class="lyb"/>`;
+    } else g += `<rect x="${X0}" y="${o.y.toFixed(1)}" width="${X1 - X0}" height="${o.h.toFixed(1)}" fill="${col}" class="lyb"${x.mode === 'a' ? ' stroke-dasharray="3 2"' : ''}/>`;
+    const c = o.y + o.h / 2;
+    if (on) g += `<rect x="${LX - 6}" y="${(ly[i] - 17).toFixed(1)}" width="${636 - LX}" height="34" rx="4" class="lybg"/>`;
+    g += `<path d="M${X1} ${c.toFixed(1)}L${X1 + 14} ${c.toFixed(1)}L${LX - 12} ${ly[i].toFixed(1)}L${LX - 4} ${ly[i].toFixed(1)}" class="lyl"/>`;
+    const nm = m.n.length > 40 ? m.n.slice(0, 39) + '…' : m.n;
+    const dimt = x.mode === 'v' ? 't = ' + fT(x.L.t) + ' cm · γ = ' + F(x.L.g, x.L.g < 1 ? 3 : 2) + ' kN/m³' : x.mode === 'rib' ? F(x.L.b, 0) + '×' + F(x.L.h, 0) + ' co ' + F(x.L.a, 0) + ' cm · γ = ' + F(x.L.g, 2) : 'g = ' + F(x.L.g, 3) + ' kN/m²';
+    g += `<text x="${LX}" y="${(ly[i] - 2).toFixed(1)}" class="lyn">${i + 1}. ${esc(nm)}</text><text x="${LX}" y="${(ly[i] + 13).toFixed(1)}" class="lyv">${dimt} → <tspan class="lygv">${F(x.gk, 3)}</tspan> kN/m²</text>`;
+    if (o.h >= 13) g += `<text x="${X0 - 8}" y="${(c + 4).toFixed(1)}" text-anchor="end" class="lyt">${x.mode === 'v' ? fT(x.L.t) : x.mode === 'rib' ? F(x.L.h, 0) : 'g'}</text>`;
+    /* obszar kliknięcia – pas warstwy + etykieta */
+    g += `<rect x="${X0 - 40}" y="${o.y.toFixed(1)}" width="${X1 - X0 + 40}" height="${o.h.toFixed(1)}" class="lyhit"/><rect x="${LX - 4}" y="${(ly[i] - 16).toFixed(1)}" width="${640 - LX}" height="32" class="lyhit"/>`;
+    lab += `<g class="lyg0${on}"${opt.click ? ` data-lay="${esc(p.id)}|${esc(x.L.id)}"` : ''}><title>${esc(m.n)} – kliknij, aby edytować</title>${g}</g>`;
   });
-  return `<figure style="max-width:520px">${`<svg viewBox="0 0 420 ${H.toFixed(0)}" role="img" aria-label="Przekrój przez warstwy">${s}</svg>`}<figcaption>Przekrój przegrody – grubości w cm (warstwy o ciężarze powierzchniowym „g” – symbolicznie)${R.alpha > 0 ? `; nachylenie α = ${F(R.alpha, 1)}°` : ''}</figcaption></figure>`;
+  const H = Math.max(yEnd, ly.length ? ly[ly.length - 1] + 22 : yEnd) + 34;
+  s += lab;
+  s += `<text x="${X0}" y="${(Math.max(yEnd, ly[ly.length - 1] + 18) + 24).toFixed(1)}" class="lytot">Σ g<tspan dy="4" font-size="10">k</tspan><tspan dy="-4"> = ${F(R.gk, 3)} kN/m²${R.alpha > 0 ? ' (na m² połaci; rzut: ' + F(R.gkH, 3) + ')' : ''}</tspan></text>`;
+  s += `<text x="${X0 - 8}" y="10" text-anchor="end" class="t2" style="font-size:11px">[cm]</text>`;
+  return `<figure class="lyfig"><svg class="lysvg" viewBox="0 0 640 ${H.toFixed(0)}" role="img" aria-label="Przekrój przez warstwy">${s}</svg><figcaption>Przekrój przegrody – grubości w cm (warstwy o ciężarze powierzchniowym „g” – symbolicznie)${R.alpha > 0 ? `; nachylenie α = ${F(R.alpha, 1)}°` : ''}${opt.click ? ' · kliknij warstwę, aby ją edytować' : ''}</figcaption></figure>`;
 }
 /* ---------- wiata ---------- */
 function canopy(duo, a) {

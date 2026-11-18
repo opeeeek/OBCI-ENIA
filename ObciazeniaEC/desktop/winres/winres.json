@@ -1,0 +1,24 @@
+{
+  "RT_GROUP_ICON": {
+    "#1": {
+      "0000": ["icon256.png", "icon48.png", "icon32.png", "icon16.png"]
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": { "file_version": "1.1.0.0", "product_version": "1.1.0.0" },
+        "info": {
+          "0415": {
+            "FileDescription": "ObciążeniaEC – zestawienie obciążeń wg PN-EN 1990 i PN-EN 1991",
+            "FileVersion": "1.1.0",
+            "InternalName": "ObciazeniaEC",
+            "OriginalFilename": "ObciazeniaEC.exe",
+            "ProductName": "ObciążeniaEC",
+            "ProductVersion": "1.1.0"
+          }
+        }
+      }
+    }
+  }
+}

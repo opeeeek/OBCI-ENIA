@@ -231,6 +231,20 @@ function windRefresh(id) {
   if (m && m.dataset.wmodal === id) { const c = itemOf('wind', id); if (c) m.outerHTML = windModalHTML(c); }
 }
 
+/* ---------- warstwy: wybór na schemacie lub w tabeli ---------- */
+function selectLayer(pid, lid, fromDiagram) {
+  S.ui.lay = S.ui.lay || {};
+  const was = S.ui.lay[pid];
+  S.ui.lay[pid] = lid; save();
+  if (S.ui.act.perm !== pid) setActive('perm', pid);
+  $$('#p-perm tr[data-lrow]').forEach(tr => tr.classList.toggle('lsel', tr.dataset.lrow === pid + '|' + lid));
+  if (was !== lid || fromDiagram) { const side = $('#p-perm .dside'); if (side) side.innerHTML = permSide(); }
+  if (fromDiagram) {
+    const tr = $(`#p-perm tr[data-lrow="${pid}|${lid}"]`);
+    if (tr) { const d = tr.closest('details'); if (d && !d.open) d.open = true; tr.scrollIntoView({ block: 'nearest' }); tr.classList.remove('flash'); void tr.offsetWidth; tr.classList.add('flash'); }
+  }
+}
+
 /* ---------- operacje na listach ---------- */
 function colOfEl(el) { const d = el.closest('details.item'); return d ? { col: d.dataset.col, id: d.dataset.id } : null; }
 function cloneItem(o) { const c = JSON.parse(JSON.stringify(o)); c.id = uid(); if (c.layers) c.layers.forEach(L => L.id = uid()); c.name = (c.name || '') + ' (kopia)'; return c; }
@@ -299,6 +313,8 @@ document.addEventListener('click', e => {
   }
   const lp = t.closest('[data-locpick]'); if (lp) { const e2 = LOC_RES[+lp.dataset.locpick]; if (e2) locPick(e2); return; }
   const gt = t.closest('[data-goto]'); if (gt) { const [col, id] = gt.dataset.goto.split('|'); gotoItem(col, id); return; }
+  const lay = t.closest('[data-lay]');
+  if (lay) { const [pid, lid] = lay.dataset.lay.split('|'); selectLayer(pid, lid, true); return; }
   const wz = t.closest('[data-wz]');
   if (wz) { const [id, key] = wz.dataset.wz.split('|'); S.ui.wz = S.ui.wz || {}; S.ui.wz[id] = key; save(); windRefresh(id); return; }
   const wd = t.closest('[data-wdir]');
@@ -313,10 +329,16 @@ document.addEventListener('click', e => {
   switch (act) {
     case 'up': case 'down': case 'dup': case 'del': if (ci) itemAction(act, ci.col, ci.id); return;
     case 'add': addItem(a.dataset.col, a.dataset.type); return;
-    case 'ladd': case 'laddrib': { const p = itemOf('perm', a.dataset.p); if (!p) return; p.layers.push(act === 'laddrib' ? RIB('C24', 8, 18, 90) : Ly('USRV', 1)); changed(true); return; }
+    case 'ladd': case 'laddrib': { const p = itemOf('perm', a.dataset.p); if (!p) return; const nl = act === 'laddrib' ? RIB('C24', 8, 18, 90) : Ly('USRV', 1); p.layers.push(nl); S.ui.lay = S.ui.lay || {}; S.ui.lay[p.id] = nl.id; changed(true); return; }
+    case 'lins': case 'ldup': {
+      const p = itemOf('perm', a.dataset.p); if (!p) return; const i = p.layers.findIndex(L => L.id === a.dataset.l); if (i < 0) return;
+      const nl = act === 'ldup' ? Object.assign(JSON.parse(JSON.stringify(p.layers[i])), { id: uid() }) : Ly('USRV', 1);
+      p.layers.splice(i + 1, 0, nl); S.ui.lay = S.ui.lay || {}; S.ui.lay[p.id] = nl.id; changed(true); return;
+    }
+    case 'lreset': { const p = itemOf('perm', a.dataset.p); if (!p) return; const L = p.layers.find(x => x.id === a.dataset.l); if (!L) return; L.g = EC.matOf(L.m, umatMap()).g; changed(true); return; }
     case 'lup': case 'ldown': case 'ldel': {
       const p = itemOf('perm', a.dataset.p); if (!p) return; const i = p.layers.findIndex(L => L.id === a.dataset.l); if (i < 0) return;
-      if (act === 'ldel') { snap(); p.layers.splice(i, 1); }
+      if (act === 'ldel') { snap(); p.layers.splice(i, 1); if (S.ui.lay && S.ui.lay[p.id] === a.dataset.l) S.ui.lay[p.id] = ''; }
       else if (act === 'lup' && i > 0) [p.layers[i - 1], p.layers[i]] = [p.layers[i], p.layers[i - 1]];
       else if (act === 'ldown' && i < p.layers.length - 1) [p.layers[i + 1], p.layers[i]] = [p.layers[i], p.layers[i + 1]];
       changed(true); return;
@@ -354,7 +376,7 @@ document.addEventListener('input', e => {
   if (t.id === 'locq') { LOC_Q = t.value; LOC_RES = GEO.search(LOC_Q, 10); locSearchRender(); return; }
   if (t.id === 'matq') { MAT_Q = t.value; $('#matlist').innerHTML = matList(); return; }
   if (t.dataset.psi) { const [k, i] = t.dataset.psi.split('.'); const v = pnum(t.value); if (!isNum(v)) { t.classList.add('bad'); return; } t.classList.remove('bad'); if (!S.psi) S.psi = JSON.parse(JSON.stringify(PSI_DEF)); S.psi[k][+i] = v; clearTimeout(rcT); rcT = setTimeout(() => changed(false), 200); return; }
-  if (t.dataset.o && t.dataset.k) { if (t.dataset.txt) { setField(t); save(); if (t.dataset.k === 'name') { const h = t.closest('details.item'); if (h) { const h3 = h.querySelector('summary h3'); if (h3) h3.textContent = t.value; } } if (t.dataset.o === 'meta' && t.dataset.k === 'name') $('#projName').value = t.value; return; } onFieldInput(t, false); }
+  if (t.dataset.o && t.dataset.k) { if (t.dataset.txt) { setField(t); syncFields(t); save(); if (t.dataset.k === 'name') { const h = t.closest('details.item'); if (h) { const h3 = h.querySelector('summary h3'); if (h3) h3.textContent = t.value; } } if (t.dataset.o === 'meta' && t.dataset.k === 'name') $('#projName').value = t.value; return; } onFieldInput(t, false); }
 });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -368,6 +390,8 @@ document.addEventListener('change', e => {
   else if (t.dataset.txt) { setField(t); changed(t.dataset.o === 'meta' ? false : false); }
 });
 document.addEventListener('focusin', e => {
+  const lr = e.target.closest && e.target.closest('[data-lrow]');
+  if (lr) { const [pid, lid] = lr.dataset.lrow.split('|'); if ((S.ui.lay || {})[pid] !== lid) selectLayer(pid, lid, false); }
   const d = e.target.closest && e.target.closest('details.item'); if (!d) return;
   const t = TAB_OF[d.dataset.col] || d.dataset.col;
   if (S.ui.act[t] !== d.dataset.id) setActive(d.dataset.col, d.dataset.id);

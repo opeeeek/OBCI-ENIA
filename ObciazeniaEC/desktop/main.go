@@ -50,6 +50,7 @@ func main() {
 			Width:  1440,
 			Height: 900,
 			Center: true,
+			IconId: 1, // ikona z zasobu #1 (desktop/winres, rsrc_windows_amd64.syso)
 		},
 	})
 	if w == nil {

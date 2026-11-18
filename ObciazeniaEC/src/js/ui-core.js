@@ -299,8 +299,18 @@ function refreshLight() {
   $$('[data-sumv]').forEach(el => { const [col, id] = el.dataset.sumv.split('.'); el.innerHTML = sumVal(col, id); });
   $$('[data-lgk]').forEach(el => { const [pid, i] = el.dataset.lgk.split('.'); const r = R.perm[pid]; el.innerHTML = r && r.rows[+i] ? F(r.rows[+i].gk, 3) : '—'; });
   $$('[data-ltot]').forEach(el => { const r = R.perm[el.dataset.ltot]; el.innerHTML = r ? F(r.gk, 3) : '—'; });
+  $$('[data-lfx]').forEach(el => { const [pid, i] = el.dataset.lfx.split('.'); const r = R.perm[pid]; el.innerHTML = r && r.rows[+i] ? (r.rows[+i].f || '') : ''; });
   const side = $('#p-' + S.ui.tab + ' .dside');
-  if (side && TABS[S.ui.tab] && TABS[S.ui.tab].side) { const y = $('#panes').scrollTop; side.innerHTML = TABS[S.ui.tab].side(); $('#panes').scrollTop = y; }
+  if (side && TABS[S.ui.tab] && TABS[S.ui.tab].side) {
+    const y = $('#panes').scrollTop;
+    const ae = document.activeElement;
+    if (ae && side.contains(ae) && side.querySelector('[data-live]')) {
+      /* fokus w panelu (np. edytor warstwy) – odśwież tylko części wynikowe, pola edycji zostają */
+      const tmp = document.createElement('div'); tmp.innerHTML = TABS[S.ui.tab].side();
+      side.querySelectorAll('[data-live]').forEach(el => { const n = tmp.querySelector(`[data-live="${el.dataset.live}"]`); if (n) el.innerHTML = n.innerHTML; });
+    } else side.innerHTML = TABS[S.ui.tab].side();
+    $('#panes').scrollTop = y;
+  }
   if (TABS[S.ui.tab] && TABS[S.ui.tab].light) TABS[S.ui.tab].light();
 }
 function renderStatus() {
@@ -358,8 +368,14 @@ function setField(el, finalCommit) {
   else obj[k] = el.value;
   return true;
 }
+/* to samo pole w kilku miejscach (np. tabela warstw i edytor na schemacie) – synchronizacja wartości */
+function syncFields(el) {
+  const o = el.dataset.o, k = el.dataset.k; if (!o || !k) return;
+  $$('[data-o][data-k]').forEach(x => { if (x === el || x.dataset.o !== o || x.dataset.k !== k) return; if (x.type === 'checkbox') x.checked = el.checked; else x.value = el.value; });
+}
 function onFieldInput(el, isChange) {
   const o = el.dataset.o, k = el.dataset.k;
+  syncFields(el);
   if (el.tagName === 'INPUT' && el.type !== 'checkbox' && !isChange) {
     if (!setField(el)) return;
     clearTimeout(rcT); rcT = setTimeout(() => { postSet(o, k); changed(false); }, 140);
