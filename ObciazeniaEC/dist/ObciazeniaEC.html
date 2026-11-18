@@ -220,6 +220,40 @@ svg .lyr { stroke: var(--bldln); stroke-width: .8; }
 .bars { display: flex; height: 26px; border-radius: 4px; overflow: hidden; margin: 2px 0 4px; border: 1px solid var(--line2); }
 .bars span { display: grid; place-items: center; color: #fff; font: 600 11.5px var(--mono); overflow: hidden; white-space: nowrap; }
 .bars .G { background: var(--cG); } .bars .Q { background: var(--cQ); } .bars .S { background: var(--cS); } .bars .W { background: var(--cW); } .bars .T { background: var(--cT); }
+/* ---------- schematy wiatru */
+.wtools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 0 0 6px; }
+.wdirs button { font-weight: 600; padding: 5px 14px; }
+.wdiag { border: 1px solid var(--line2); border-radius: 6px; background: var(--panel2); padding: 6px; margin: 0 0 10px; }
+.wdiag svg.wsvg { width: 100%; height: auto; display: block; max-height: 80vh; }
+.wdiag.big svg.wsvg { max-height: 72vh; }
+svg.wsvg text { font: 14px var(--ui); fill: var(--ink); }
+svg.wsvg .elab { font-size: 11.5px; font-style: italic; fill: var(--ink2); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+svg.wsvg .t2 { fill: var(--ink3); }
+svg.wsvg .sec { font-weight: 650; fill: var(--acc3); }
+svg.wsvg .wlab { font-size: 12px; fill: var(--ink2); }
+svg.wsvg .zl { font-weight: 700; font-size: 16px; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+svg.wsvg .zv { font: 600 13px var(--mono); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+svg .dim line, svg .dim path { stroke: var(--ink3); stroke-width: .9; fill: none; }
+svg.wsvg .dim text { font-size: 12.5px; fill: var(--ink2); }
+svg .bldp { fill: var(--bld); stroke: var(--bldln); stroke-width: 1.2; }
+svg .ridge { stroke: var(--ink2); stroke-width: 1.3; stroke-dasharray: 7 4; fill: none; }
+svg .wzs { fill: var(--suct); } svg .wzp { fill: var(--press); } svg .wz0 { fill: var(--bld); }
+svg .wzg rect, svg .wzg path { stroke: var(--bldln); stroke-width: 1; }
+svg .wzg { cursor: pointer; }
+svg .wzg:hover rect, svg .wzg:hover path { stroke: var(--acc); stroke-width: 2.4; }
+svg .wzg.wzsel rect, svg .wzg.wzsel path { stroke: var(--ink); stroke-width: 3.2; }
+svg .wzb { fill: none; }
+.wzinfo { border: 1px solid var(--acc); border-radius: 6px; background: var(--acc2); padding: 8px 10px; margin: 0 0 10px; }
+.wzinfo .wzh { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.wzinfo .zb { font: 700 16px var(--mono); padding: 1px 9px; border-radius: 4px; color: #fff; }
+.wzinfo .zb.s { background: var(--suct); } .wzinfo .zb.p { background: var(--press); }
+.wzinfo .kv { background: var(--panel); }
+table.t tr[data-wz] { cursor: pointer; }
+table.t tr[data-wz]:hover td { background: var(--hover); }
+table.t tr.sel td { background: var(--acc2); font-weight: 650; }
+.dlg.wide { max-width: 1280px; }
+.wmodal .mhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.wmodal .mhead h3 { margin: 0; }
 /* ---------- Σ – wybór oddziaływań */
 .vlist { display: flex; flex-direction: column; gap: 3px; }
 .vrow { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) minmax(0, 46%); gap: 6px; align-items: center; padding: 3px 4px; border-radius: 4px; }
@@ -4963,17 +4997,17 @@ function cpiSet(c, wc) {
   }
   return { vals: [0.2, -0.3], txt: '', ref: '', key: '' };
 }
-function zoneResults(zones, qp, cpi, cscd, r) {
+function zoneResults(zones, qp, cpi, cscd, r, Dd) {
   const rows = [];
   zones.forEach(Z => {
     const cand = [];
-    ['n', 'p'].forEach(k => { if (Z[k] !== null && Z[k] !== undefined) cpi.vals.forEach(ci => cand.push({ cpe: Z[k], cpi: ci, w: cscd * qp * Z[k] - qp * ci })); });
+    ['n', 'p'].forEach(k => { if (Z[k] !== null && Z[k] !== undefined) cpi.vals.forEach(ci => cand.push({ k, cpe: Z[k], cpi: ci, we: cscd * qp * Z[k], wi: qp * ci, w: cscd * qp * Z[k] - qp * ci })); });
     if (!cand.length) return;
     let mx = cand[0], mn = cand[0];
     cand.forEach(x => { if (x.w > mx.w) mx = x; if (x.w < mn.w) mn = x; });
     const cpes = [Z.n, Z.p].filter(x => x !== null && x !== undefined);
-    rows.push({ z: Z.z, cpes, we: cpes.map(x => cscd * qp * x), max: mx, min: mn, dim: Z.dim || '' });
-    r.vals.push({ key: Z.z, label: 'strefa ' + Z.z, v: mx.w, vmin: mn.w, unit: 'kN/m²', wind: true });
+    rows.push({ z: Z.z, base: Z.base || Z.z, cpes, we: cpes.map(x => cscd * qp * x), max: mx, min: mn, dim: Z.dim || '', cells: Z.cells || null, area: Z.area, cand, th: Dd ? Dd.th : null, len: Z.len });
+    r.vals.push({ key: Z.z, label: 'strefa ' + Z.z + (Dd && Dd.th === '0' && !/[₀₉₁₈]/.test(Z.z) ? ' (θ = 0°)' : ''), v: mx.w, vmin: mn.w, unit: 'kN/m²', wind: true });
   });
   return rows;
 }
@@ -4987,118 +5021,156 @@ function windCalc(c, ws, fIn) {
   const zOver = isNum(c.zeMan) && c.zeUse ? c.zeMan : null;
   const building = ['walls', 'flat', 'mono', 'duo', 'hip'].includes(c.type);
   if (building) {
-    const h = num(c.h, 0), b = num(c.b, 1), d = num(c.d, 1);
+    /* wymiary budynku: L – długość (wzdłuż kalenicy / osi x), B – szerokość, h – wysokość
+       θ = 0°: wiatr prostopadły do L (b = L, d = B); θ = 90°: wiatr równoległy do L (b = B, d = L) */
+    const h = num(c.h, 0), L = Math.max(num(c.b, 1), 0.01), B = Math.max(num(c.d, 1), 0.01);
     const ze = zOver !== null ? zOver : h;
     const q = qpAt(ze, ws, wb);
-    r.qp = q.qp; r.ze = ze;
+    r.qp = q.qp; r.ze = ze; r.h = h; r.L = L; r.B = B; r.Aload = A;
     r.steps.push(['z<sub>e</sub> = ' + (zOver !== null ? F(ze, 2) + ' m (podano)' : 'h = ' + F(h, 2) + ' m') + ': ' + q.txt, q.ref, q.key]);
-    if (q.zz < ze && ws.method !== 'EN' && ws.method !== 'man') { /* zmax */ }
-    const wc = wallCpe(h, d);
-    const cpi = cpiSet(c, wc);
+    const wc0 = wallCpe(h, B);
+    const cpi = cpiSet(c, wc0);
     r.cpi = cpi;
     r.steps.push([cpi.txt, cpi.ref, cpi.key]);
     if (cpi.vals.some(v => v !== 0)) r.steps.push(['w<sub>i</sub> = q<sub>p</sub>(z<sub>i</sub>)·c<sub>pi</sub>, z<sub>i</sub> = z<sub>e</sub> → ' + cpi.vals.map(v => F(q.qp * v, 3)).join(' / ') + ' kN/m²', 'PN-EN 1991-1-4, (5.2)', '1-4:5.2']);
     r.steps.push([Atxt, 'PN-EN 1991-1-4, 7.2.1, rys. 7.2', '1-4:7.2.1']);
     if (cscd !== 1) r.steps.push(['c<sub>s</sub>c<sub>d</sub> = ' + F(cscd, 2) + ' – stosowany do ciśnienia zewnętrznego', 'PN-EN 1991-1-4, 6.2', '1-4:6.2']);
-    const e = Math.min(b, 2 * h);
-    r.e = e;
+    r.steps.push(['budynek L × B × h = ' + F(L, 2) + ' × ' + F(B, 2) + ' × ' + F(h, 2) + ' m; θ = 0°: wiatr prostopadły do L (b = L, d = B), θ = 90°: wiatr równoległy do L (b = B, d = L)' + (c.type === 'mono' ? ', θ = 180°: jak 0°, wiatr na wyższą krawędź' : ''), 'PN-EN 1991-1-4, 7.2.1, rys. 7.4–7.9', '1-4:7.2.2']);
+    const nCommon = r.steps.length;
+    const dirs = [];
+    const mk = (th, b, d, head) => ({ th, b, d, e: Math.min(b, 2 * h), head, steps: [], zones: [] });
+    const Z = (z, base, n, p, dim, area, extra) => Object.assign({ z, base, n: n ? cpeA(n, A) : null, p: p ? cpeA(p, A) : null, cells: { n, p }, dim, area }, extra || {});
     if (c.type === 'walls') {
-      r.steps.push(['e = min(b; 2h) = min(' + F(b, 2) + '; ' + F(2 * h, 2) + ') = ' + F(e, 2) + ' m; h/d = ' + F(h, 2) + '/' + F(d, 2) + ' = ' + F(wc.hd, 3), 'PN-EN 1991-1-4, rys. 7.5', '1-4:7.2.2']);
-      let zl;
-      if (e < d) zl = [['A', e / 5], ['B', 4 * e / 5], ['C', d - e]];
-      else if (e < 5 * d) zl = [['A', e / 5], ['B', d - e / 5]];
-      else zl = [['A', d]];
-      r.zoneLen = zl;
-      r.steps.push(['c<sub>pe,10</sub> (h/d = ' + F(wc.hd, 2) + '): A ' + Fs(wc.A[0], 2) + ', B ' + Fs(wc.B[0], 2) + ', C ' + Fs(wc.C[0], 2) + ', D ' + Fs(wc.D[0], 2) + ', E ' + Fs(wc.E[0], 2) + (wc.hd > 0.25 && wc.hd < 5 && wc.hd !== 1 ? ' (interpolacja liniowa)' : ''), 'PN-EN 1991-1-4, tabl. 7.1', '1-4:7.2.2']);
-      const zones = zl.map(([z, L]) => ({ z, n: cpeA(wc[z], A), p: null, dim: 'pas ' + F(L, 2) + ' m' }));
-      zones.push({ z: 'D', n: null, p: cpeA(wc.D, A), dim: 'ściana nawietrzna' });
-      zones.push({ z: 'E', n: cpeA(wc.E, A), p: null, dim: 'ściana zawietrzna' });
-      r.zones = zoneResults(zones, q.qp, cpi, cscd, r);
-      const prof = [];
-      if (h <= b) prof.push([0, h, h]);
-      else if (h <= 2 * b) { prof.push([0, b, b]); prof.push([b, h, h]); }
-      else {
-        prof.push([0, b, b]);
-        const n = Math.max(1, Math.ceil((h - 2 * b) / b)), hs = (h - 2 * b) / n;
-        for (let i = 0; i < n; i++) prof.push([b + i * hs, b + (i + 1) * hs, b + (i + 1) * hs]);
-        prof.push([h - b, h, h]);
-      }
-      r.profile = prof.map(([z0, z1, z]) => { const qq = qpAt(z, ws, wb); return { z0, z1, ze: z, qp: qq.qp, wD: cscd * qq.qp * cpeA(wc.D, A) }; });
-      if (prof.length > 1) r.steps.push(['h > b: profil z<sub>e</sub> na ścianie nawietrznej wg rys. 7.4 (' + prof.length + ' pasy)', 'PN-EN 1991-1-4, 7.2.2(1), rys. 7.4', '1-4:7.2.2']);
-      const hd = wc.hd;
-      const fcor = hd >= 5 ? 1 : hd <= 1 ? 0.85 : 0.85 + 0.15 * (hd - 1) / 4;
-      r.fcor = fcor;
-      const Fnet = (cpeA(wc.D, 10) - cpeA(wc.E, 10)) * q.qp * cscd * fcor;
-      r.steps.push(['brak pełnej korelacji parcia D i ssania E: siła wypadkowa na budynek × ' + F(fcor, 3) + ' → (c<sub>pe,D</sub> − c<sub>pe,E</sub>)·q<sub>p</sub>·c<sub>s</sub>c<sub>d</sub>·' + F(fcor, 3) + ' = ' + F(Fnet, 3) + ' kN/m² rzutu ściany', 'PN-EN 1991-1-4, 7.2.2(3)', '1-4:7.2.2']);
-      r.vals.push({ key: 'DEnet', label: 'D + E – wypadkowe (z f<sub>kor</sub>)', v: Fnet, unit: 'kN/m²', wind: true, vmin: Fnet });
-      r.diag = { shape: 'walls', b, d, zl, e };
+      [['0', L, B, 'θ = 0° – wiatr prostopadły do ściany L'], ['90', B, L, 'θ = 90° – wiatr prostopadły do ściany B']].forEach(([th, b, d, head]) => {
+        const Dd = mk(th, b, d, head), e = Dd.e, sfx = th === '0' ? '' : '₉₀';
+        const wc = wallCpe(h, d);
+        let zl;
+        if (e < d) zl = [['A', e / 5], ['B', 4 * e / 5], ['C', d - e]];
+        else if (e < 5 * d) zl = [['A', e / 5], ['B', d - e / 5]];
+        else zl = [['A', d]];
+        Dd.zl = zl; Dd.hd = wc.hd;
+        Dd.steps.push([head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = min(' + F(b, 2) + '; ' + F(2 * h, 2) + ') = ' + F(e, 2) + ' m; h/d = ' + F(wc.hd, 3) + '; strefy ścian bocznych: ' + zl.map(([z, l]) => z + ' = ' + F(l, 2) + ' m').join(', '), 'PN-EN 1991-1-4, rys. 7.5', '1-4:7.2.2']);
+        Dd.steps.push(['c<sub>pe,10</sub> (h/d = ' + F(wc.hd, 2) + '): A ' + Fs(wc.A[0], 2) + ', B ' + Fs(wc.B[0], 2) + ', C ' + Fs(wc.C[0], 2) + ', D ' + Fs(wc.D[0], 2) + ', E ' + Fs(wc.E[0], 2) + (wc.hd > 0.25 && wc.hd < 5 && wc.hd !== 1 ? ' (interpolacja liniowa)' : ''), 'PN-EN 1991-1-4, tabl. 7.1', '1-4:7.2.2']);
+        zl.forEach(([z, l]) => Dd.zones.push(Z(z + sfx, z, wc[z], null, 'ściany boczne, pas ' + F(l, 2) + ' m × h = ' + F(h, 2) + ' m', l * h, { len: l })));
+        Dd.zones.push(Z('D' + sfx, 'D', null, wc.D, 'ściana nawietrzna ' + F(b, 2) + ' × ' + F(h, 2) + ' m', b * h));
+        Dd.zones.push(Z('E' + sfx, 'E', wc.E, null, 'ściana zawietrzna ' + F(b, 2) + ' × ' + F(h, 2) + ' m', b * h));
+        const prof = [];
+        if (h <= b) prof.push([0, h, h]);
+        else if (h <= 2 * b) { prof.push([0, b, b]); prof.push([b, h, h]); }
+        else {
+          prof.push([0, b, b]);
+          const n = Math.max(1, Math.ceil((h - 2 * b) / b)), hs = (h - 2 * b) / n;
+          for (let i = 0; i < n; i++) prof.push([b + i * hs, b + (i + 1) * hs, b + (i + 1) * hs]);
+          prof.push([h - b, h, h]);
+        }
+        Dd.profile = prof.map(([z0, z1, z]) => { const qq = qpAt(z, ws, wb); return { z0, z1, ze: z, qp: qq.qp, wD: cscd * qq.qp * cpeA(wc.D, A) }; });
+        if (prof.length > 1) Dd.steps.push(['h > b: profil z<sub>e</sub> na ścianie nawietrznej wg rys. 7.4 (' + prof.length + ' pasy): ' + Dd.profile.map(p => F(p.z0, 1) + '–' + F(p.z1, 1) + ' m: q<sub>p</sub> = ' + F(p.qp, 3)).join('; '), 'PN-EN 1991-1-4, 7.2.2(1), rys. 7.4', '1-4:7.2.2']);
+        const fcor = wc.hd >= 5 ? 1 : wc.hd <= 1 ? 0.85 : 0.85 + 0.15 * (wc.hd - 1) / 4;
+        Dd.fcor = fcor;
+        Dd.Fnet = (cpeA(wc.D, 10) - cpeA(wc.E, 10)) * q.qp * cscd * fcor;
+        Dd.steps.push(['brak pełnej korelacji parcia D i ssania E: (c<sub>pe,D</sub> − c<sub>pe,E</sub>)·q<sub>p</sub>·c<sub>s</sub>c<sub>d</sub>·' + F(fcor, 3) + ' = ' + F(Dd.Fnet, 3) + ' kN/m² rzutu ściany (siła wypadkowa na budynek)', 'PN-EN 1991-1-4, 7.2.2(3)', '1-4:7.2.2']);
+        dirs.push(Dd);
+      });
       r.def = 'D';
     } else if (c.type === 'flat') {
       let cells, tx = '';
       const eav = c.eaves || 'sharp';
       if (eav === 'sharp') { cells = FLAT.sharp; tx = 'krawędź ostra'; }
       else if (eav === 'par') {
-        const hp = num(c.hp, 0), x = hp / h;
+        const hp = num(c.hp, 0), x = hp / Math.max(h, 1e-6);
         if (x < 0.025) cells = FLAT.sharp.map((c0, k) => lerpCell(c0, FLAT.par[0][k + 1], x / 0.025));
         else cells = interpCells(FLAT.par, x);
         tx = 'attyka h<sub>p</sub>/h = ' + F(hp, 2) + '/' + F(h, 2) + ' = ' + F(x, 3) + (x < 0.025 ? ' (interpolacja: krawędź ostra – h<sub>p</sub>/h = 0,025)' : x > 0.1 ? ' (przyjęto jak dla 0,10)' : '');
-      } else if (eav === 'cur') { const x = num(c.rr, 0) / h; cells = interpCells(FLAT.cur, x); tx = 'krawędź zaokrąglona r/h = ' + F(x, 3); }
+      } else if (eav === 'cur') { const x = num(c.rr, 0) / Math.max(h, 1e-6); cells = interpCells(FLAT.cur, x); tx = 'krawędź zaokrąglona r/h = ' + F(x, 3); }
       else { const x = num(c.am, 45); cells = interpCells(FLAT.man, x); tx = 'krawędź mansardowa α = ' + F(x, 1) + '°'; }
-      r.steps.push(['e = min(b; 2h) = ' + F(e, 2) + ' m; ' + tx + ' → c<sub>pe,10</sub>: F ' + Fs(cells[0][0], 2) + ', G ' + Fs(cells[1][0], 2) + ', H ' + Fs(cells[2][0], 2) + ', I ±0,20', 'PN-EN 1991-1-4, tabl. 7.2, rys. 7.6', '1-4:7.2.3']);
-      const zones = [
-        { z: 'F', n: cpeA(cells[0], A), p: null, dim: F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m (narożniki)' },
-        { z: 'G', n: cpeA(cells[1], A), p: null, dim: F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m' },
-        { z: 'H', n: cpeA(cells[2], A), p: null, dim: 'pas ' + F(e / 10, 2) + '–' + F(e / 2, 2) + ' m od krawędzi' },
-        { z: 'I', n: -0.2, p: 0.2, dim: 'pozostała część (> ' + F(e / 2, 2) + ' m)' }
-      ];
-      if (d <= e / 2) zones.pop();
-      r.zones = zoneResults(zones, q.qp, cpi, cscd, r);
+      r.hp = eav === 'par' ? num(c.hp, 0) : 0;
+      r.steps.push([tx + ' → c<sub>pe,10</sub>: F ' + Fs(cells[0][0], 2) + ', G ' + Fs(cells[1][0], 2) + ', H ' + Fs(cells[2][0], 2) + ', I ±0,20; c<sub>pe,1</sub>: F ' + Fs(cells[0][1], 2) + ', G ' + Fs(cells[1][1], 2) + ', H ' + Fs(cells[2][1], 2), 'PN-EN 1991-1-4, tabl. 7.2', '1-4:7.2.3']);
+      [['0', L, B, 'θ = 0° – wiatr prostopadły do L'], ['90', B, L, 'θ = 90° – wiatr równoległy do L']].forEach(([th, b, d, head]) => {
+        const Dd = mk(th, b, d, head), e = Dd.e, sfx = th === '0' ? '' : '₉₀';
+        const e10 = Math.min(e / 10, d), e2 = Math.min(e / 2, d);
+        Dd.steps.push([head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ', e/2 = ' + F(e / 2, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.6', '1-4:7.2.3']);
+        Dd.zones.push(Z('F' + sfx, 'F', cells[0], null, 'narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m (2 pola)', 2 * Math.min(e / 4, b / 2) * e10));
+        Dd.zones.push(Z('G' + sfx, 'G', cells[1], null, F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', Math.max(b - e / 2, 0) * e10));
+        Dd.zones.push(Z('H' + sfx, 'H', cells[2], null, 'pas ' + F(e / 10, 2) + '–' + F(e2, 2) + ' m od krawędzi nawietrznej', b * Math.max(e2 - e10, 0)));
+        if (d > e / 2) Dd.zones.push(Z('I' + sfx, 'I', [-0.2, -0.2], [0.2, 0.2], 'pozostała część (> ' + F(e / 2, 2) + ' m)', b * (d - e / 2)));
+        dirs.push(Dd);
+      });
       r.note = 'Strefa I: rozważa się obie wartości c<sub>pe</sub> = +0,2 i −0,2. Dla attyk o h<sub>p</sub>/h > 0,1 – jak dla 0,1.';
-      r.diag = { shape: 'flat', b, d, e };
       r.def = 'H';
     } else if (c.type === 'mono') {
       const a = clamp(num(c.a, 15), 5, 75);
       if (num(c.a, 15) < 5) r.warn.push('Dla α < 5° stosuj dach płaski (7.2.3) – przyjęto α = 5°.');
+      r.alpha = a;
       const z0 = interpZ(MONO0, a), z180 = interpZ(MONO180, a), z90 = interpZ(MONO90, a);
-      const e90 = Math.min(d, 2 * h);
-      r.steps.push(['θ = 0° i 180°: e = min(b; 2h) = ' + F(e, 2) + ' m; θ = 90°: e = min(d; 2h) = ' + F(e90, 2) + ' m; α = ' + F(a, 1) + '° (interpolacja liniowa między wartościami tego samego znaku)', 'PN-EN 1991-1-4, tabl. 7.3a, 7.3b, rys. 7.7', '1-4:7.2.4']);
-      const mk = (lbl, arr, zs) => arr.map((Z, i) => ({ z: zs[i] + lbl, n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null }));
-      r.zones = [{ head: 'θ = 0° (wiatr na niższą krawędź)' }];
-      r.zones.push(...zoneResults(mk('₀', z0, ['F', 'G', 'H']).map((z, i) => Object.assign(z, { dim: ['narożniki ' + F(e / 4, 2) + '×' + F(e / 10, 2) + ' m', 'pas e/10 = ' + F(e / 10, 2) + ' m', 'reszta połaci'][i] })), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 180° (wiatr na wyższą krawędź)' });
-      r.zones.push(...zoneResults(mk('₁₈₀', z180, ['F', 'G', 'H']), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 90° (wiatr równoległy do krawędzi)' });
-      r.zones.push(...zoneResults(mk('₉₀', z90, ['Fup', 'Flow', 'G', 'H', 'I']), q.qp, cpi, cscd, r));
-      r.diag = { shape: 'mono', b, d, e };
+      r.steps.push(['α = ' + F(a, 1) + '° – interpolacja liniowa między wartościami tego samego znaku', 'PN-EN 1991-1-4, tabl. 7.3a, 7.3b', '1-4:7.2.4']);
+      const fgh = (Dd, zz, sfx) => {
+        const e = Dd.e, b = Dd.b, d = Dd.d, e10 = Math.min(e / 10, d);
+        Dd.steps.push([Dd.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.7', '1-4:7.2.4']);
+        Dd.zones.push(Z('F' + sfx, 'F', zz[0].n, zz[0].p, 'narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m (2 pola)', 2 * Math.min(e / 4, b / 2) * e10));
+        Dd.zones.push(Z('G' + sfx, 'G', zz[1].n, zz[1].p, F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', Math.max(b - e / 2, 0) * e10));
+        Dd.zones.push(Z('H' + sfx, 'H', zz[2].n, zz[2].p, 'reszta połaci (> ' + F(e / 10, 2) + ' m)', b * Math.max(d - e10, 0)));
+      };
+      const D0 = mk('0', L, B, 'θ = 0° – wiatr na niższą krawędź'); fgh(D0, z0, '₀'); dirs.push(D0);
+      const D1 = mk('180', L, B, 'θ = 180° – wiatr na wyższą krawędź'); fgh(D1, z180, '₁₈₀'); dirs.push(D1);
+      const D2 = mk('90', B, L, 'θ = 90° – wiatr równoległy do krawędzi');
+      { const e = D2.e, b = D2.b, d = D2.d, e10 = Math.min(e / 10, d), e2 = Math.min(e / 2, d);
+        D2.steps.push([D2.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ', e/2 = ' + F(e / 2, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.7', '1-4:7.2.4']);
+        const nm = ['Fup', 'Flow', 'G', 'H', 'I'];
+        const dims = ['narożnik przy wyższej krawędzi ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'narożnik przy niższej krawędzi ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', 'pas ' + F(e / 10, 2) + '–' + F(e2, 2) + ' m', 'reszta (> ' + F(e / 2, 2) + ' m)'];
+        const areas = [Math.min(e / 4, b / 2) * e10, Math.min(e / 4, b / 2) * e10, Math.max(b - e / 2, 0) * e10, b * Math.max(e2 - e10, 0), b * Math.max(d - e / 2, 0)];
+        z90.forEach((zz, i) => { if (i === 4 && d <= e / 2) return; D2.zones.push(Z(nm[i] + '₉₀', nm[i], zz.n, zz.p, dims[i], areas[i])); });
+      }
+      dirs.push(D2);
       r.def = 'H₀';
     } else if (c.type === 'duo') {
       let a = clamp(num(c.a, 30), -45, 75);
       if (Math.abs(a) < 5) { r.warn.push('Dla |α| < 5° stosuj dach płaski (7.2.3) – przyjęto α = ' + (a < 0 ? '−5' : '5') + '°.'); a = a < 0 ? -5 : 5; }
+      r.alpha = a;
       const z0 = interpZ(DUO0, a), z90 = interpZ(DUO90, a);
-      const e90 = Math.min(d, 2 * h);
-      r.steps.push(['θ = 0°: e = min(b; 2h) = ' + F(e, 2) + ' m; θ = 90°: e = min(d; 2h) = ' + F(e90, 2) + ' m; α = ' + F(a, 1) + '°', 'PN-EN 1991-1-4, tabl. 7.4a, 7.4b, rys. 7.8', '1-4:7.2.5']);
-      const zs0 = ['F', 'G', 'H', 'I', 'J'];
-      const dims0 = ['narożniki ' + F(e / 4, 2) + '×' + F(e / 10, 2) + ' m', 'pas e/10 = ' + F(e / 10, 2) + ' m', 'reszta połaci nawietrznej', 'reszta połaci zawietrznej', 'pas e/10 przy kalenicy (zawietrzna)'];
-      r.zones = [{ head: 'θ = 0° (wiatr prostopadły do kalenicy)' }];
-      r.zones.push(...zoneResults(z0.map((Z, i) => ({ z: zs0[i] + '₀', n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null, dim: dims0[i] })), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 90° (wiatr równoległy do kalenicy)' });
-      const dims90 = ['narożniki ' + F(e90 / 4, 2) + '×' + F(e90 / 10, 2) + ' m', 'pas e/10 = ' + F(e90 / 10, 2) + ' m', 'pas e/10…e/2', 'reszta (> e/2 = ' + F(e90 / 2, 2) + ' m)'];
-      r.zones.push(...zoneResults(z90.map((Z, i) => ({ z: ['F', 'G', 'H', 'I'][i] + '₉₀', n: cpeA(Z.n, A), p: null, dim: dims90[i] })), q.qp, cpi, cscd, r));
+      r.steps.push(['α = ' + F(a, 1) + '°' + (a < 0 ? ' (dach odwrócony)' : '') + ' – interpolacja liniowa między wartościami tego samego znaku', 'PN-EN 1991-1-4, tabl. 7.4a, 7.4b', '1-4:7.2.5']);
+      const D0 = mk('0', L, B, 'θ = 0° – wiatr prostopadły do kalenicy');
+      { const e = D0.e, b = D0.b, d = D0.d, e10 = Math.min(e / 10, d / 2);
+        D0.steps.push([D0.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.8', '1-4:7.2.5']);
+        const nm = ['F', 'G', 'H', 'I', 'J'];
+        const dims = ['narożniki połaci nawietrznej ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'pas przy okapie nawietrznym ' + F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', 'reszta połaci nawietrznej', 'reszta połaci zawietrznej', 'pas ' + F(e / 10, 2) + ' m przy kalenicy (zawietrzna)'];
+        const areas = [2 * Math.min(e / 4, b / 2) * e10, Math.max(b - e / 2, 0) * e10, b * Math.max(d / 2 - e10, 0), b * Math.max(d / 2 - e10, 0), b * e10];
+        z0.forEach((zz, i) => D0.zones.push(Z(nm[i] + '₀', nm[i], zz.n, zz.p, dims[i], areas[i])));
+      }
+      dirs.push(D0);
+      const D1 = mk('90', B, L, 'θ = 90° – wiatr równoległy do kalenicy');
+      { const e = D1.e, b = D1.b, d = D1.d, e10 = Math.min(e / 10, d), e2 = Math.min(e / 2, d);
+        D1.steps.push([D1.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ', e/2 = ' + F(e / 2, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.8', '1-4:7.2.5']);
+        const nm = ['F', 'G', 'H', 'I'];
+        const dims = ['narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'pas e/10 przy szczycie, między F', 'pas ' + F(e / 10, 2) + '–' + F(e2, 2) + ' m', 'reszta (> ' + F(e / 2, 2) + ' m)'];
+        const areas = [2 * Math.min(e / 4, b / 2) * e10, Math.max(b - e / 2, 0) * e10, b * Math.max(e2 - e10, 0), b * Math.max(d - e / 2, 0)];
+        z90.forEach((zz, i) => { if (i === 3 && d <= e / 2) return; D1.zones.push(Z(nm[i] + '₉₀', nm[i], zz.n, null, dims[i], areas[i])); });
+      }
+      dirs.push(D1);
       r.note = 'Przy θ = 0° rozważa się 4 przypadki: największe i najmniejsze wartości stref F, G, H w połączeniu z największymi i najmniejszymi wartościami stref I, J; nie łączy się wartości dodatnich i ujemnych na tej samej połaci (7.2.5(3)).';
-      r.diag = { shape: 'duo', b, d, e };
       r.def = 'H₀';
     } else if (c.type === 'hip') {
       const a0 = clamp(num(c.a, 30), 5, 75), a90 = clamp(num(c.a90, a0), 5, 75);
       if (num(c.a, 30) < 5 || num(c.a90, 30) < 5) r.warn.push('Tablica 7.5 obejmuje α od +5° do +75°.');
+      r.alpha = a0; r.alpha90 = a90;
       const zs = ['F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
-      r.steps.push(['e = min(b; 2h) = ' + F(e, 2) + ' m; α<sub>0</sub> = ' + F(a0, 1) + '° (połać nawietrzna przy θ = 0°), α<sub>90</sub> = ' + F(a90, 1) + '° (przy θ = 90°)', 'PN-EN 1991-1-4, tabl. 7.5, rys. 7.9', '1-4:7.2.6']);
-      r.zones = [{ head: 'θ = 0°, α<sub>0</sub> = ' + F(a0, 1) + '°' }];
-      r.zones.push(...zoneResults(interpZ(HIP, a0).map((Z, i) => ({ z: zs[i] + '₀', n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null })), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 90°, α<sub>90</sub> = ' + F(a90, 1) + '°' });
-      r.zones.push(...zoneResults(interpZ(HIP, a90).map((Z, i) => ({ z: zs[i] + '₉₀', n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null })), q.qp, cpi, cscd, r));
-      r.note = 'Rozmieszczenie stref F–N wg rys. 7.9; wymiary stref od e = ' + F(e, 2) + ' m (e/4, e/10, e/2).';
+      const dimsOf = e => ['narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'pas e/10 przy okapie nawietrznym', 'reszta połaci nawietrznej', 'połać zawietrzna', 'pas e/10 przy kalenicy (zawietrzna)', 'połacie boczne – przy okapie zawietrznym', 'pas e/10 wzdłuż naroży (krawędzi koszowych / grzbietów) połaci bocznych', 'połacie boczne – przy okapie nawietrznym', 'reszta połaci bocznych'];
+      [['0', L, B, a0, 'θ = 0° – wiatr na połać główną (α₀ = ' + F(a0, 1) + '°)'], ['90', B, L, a90, 'θ = 90° – wiatr na połać szczytową (α₉₀ = ' + F(a90, 1) + '°)']].forEach(([th, b, d, aa, head]) => {
+        const Dd = mk(th, b, d, head), sfx = th === '0' ? '₀' : '₉₀';
+        Dd.steps.push([head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(Dd.e, 2) + ' m', 'PN-EN 1991-1-4, tabl. 7.5, rys. 7.9', '1-4:7.2.6']);
+        const dims = dimsOf(Dd.e);
+        interpZ(HIP, aa).forEach((zz, i) => Dd.zones.push(Z(zs[i] + sfx, zs[i], zz.n, zz.p, dims[i], NaN)));
+        dirs.push(Dd);
+      });
+      r.note = 'Rozmieszczenie stref F–N wg rys. 7.9 (na schemacie strefy K–N zaznaczono poglądowo); wymiary stref od e (e/4, e/10).';
       r.def = 'H₀';
     }
+    dirs.forEach(Dd => { Dd.rows = zoneResults(Dd.zones, q.qp, cpi, cscd, r, Dd); if (Dd.Fnet !== undefined) r.vals.push({ key: 'DEnet' + (Dd.th === '0' ? '' : '₉₀'), label: 'D + E – wypadkowe (z f<sub>kor</sub>), θ = ' + Dd.th + '°', v: Dd.Fnet, vmin: Dd.Fnet, unit: 'kN/m²', wind: true }); });
+    r.dirs = dirs;
+    r.common = r.steps.slice();
+    r.nCommon = nCommon;
+    dirs.forEach(Dd => r.steps.push(...Dd.steps));
+    r.zones = dirs.length > 1 ? dirs.flatMap(Dd => [{ head: Dd.head }].concat(Dd.rows)) : dirs[0].rows;
+    r.diag = { shape: c.type, dirs: true };
     return finWind(r, f);
   }
   if (c.type === 'canopy1' || c.type === 'canopy2') {
@@ -5107,7 +5179,7 @@ function windCalc(c, ws, fIn) {
     let a = num(c.a, duo ? 10 : 5);
     const ze = zOver !== null ? zOver : h;
     const q = qpAt(ze, ws, wb);
-    r.qp = q.qp; r.ze = ze;
+    r.qp = q.qp; r.ze = ze; r.b = b; r.d = d; r.h = h; r.alpha = a;
     r.steps.push(['z<sub>e</sub> = ' + F(ze, 2) + ' m (wysokość wiaty): ' + q.txt, q.ref, q.key]);
     const T = duo ? CANOPY2 : CANOPY1;
     if (duo && Math.abs(a) < 5) { r.warn.push('Tablica 7.7 obejmuje |α| ≥ 5° – przyjęto α = ' + (a < 0 ? '−5' : '5') + '°.'); a = a < 0 ? -5 : 5; }
@@ -5124,7 +5196,7 @@ function windCalc(c, ws, fIn) {
     r.zones = zn.map((z, j) => {
       const mx = cscd * vMax[j + 1] * q.qp, mn = cscd * vMin[j + 1] * q.qp;
       r.vals.push({ key: z, label: 'strefa ' + z + ' (c<sub>p,net</sub>)', v: mx, vmin: mn, unit: 'kN/m²', wind: true });
-      return { z, cpes: [vMax[j + 1], vMin[j + 1]], we: [mx, mn], max: { w: mx }, min: { w: mn }, dim: { A: 'pole ogólne', B: 'pas b/10 przy krawędzi nawietrznej/zawietrznej', C: 'pas d/10 przy krawędziach bocznych', D: 'pas przy kalenicy/koszu' }[z] };
+      return { z, cpes: [vMax[j + 1], vMin[j + 1]], we: [mx, mn], max: { w: mx }, min: { w: mn }, dim: { A: 'pole ogólne', B: 'pasy d/10 wzdłuż krawędzi nawietrznej i zawietrznej', C: 'pasy b/10 wzdłuż krawędzi bocznych', D: 'pas wzdłuż kalenicy / kosza' }[z], base: z, cand: null };
     });
     r.vals.push({ key: 'cf', label: 'c<sub>f</sub>·q<sub>p</sub> – ciśnienie wypadkowe', v: cscd * vMax[0] * q.qp, vmin: cscd * vMin[0] * q.qp, unit: 'kN/m²', wind: true });
     r.net = true;
@@ -5161,7 +5233,7 @@ function windCalc(c, ws, fIn) {
       const k = 'ABCD'.indexOf(z);
       const w = cscd * psis * cp[k] * q.qp;
       r.vals.push({ key: z, label: 'strefa ' + z + ' – w<sub>net</sub> (±)', v: w, vmin: -w, unit: 'kN/m²', wind: true });
-      return { z, cpes: [cp[k]], we: [w], max: { w }, min: { w: -w }, dim: F(a0, 2) + '–' + (isFinite(a1) ? F(a1, 2) : F(l, 2)) + ' m od końca' };
+      return { z, base: z, cpes: [cp[k]], we: [w], max: { w }, min: { w: -w }, dim: F(a0, 2) + '–' + (isFinite(a1) ? F(a1, 2) : F(l, 2)) + ' m od swobodnego końca', area: (Math.min(a1, l) - a0) * h };
     });
     r.net = true;
     r.steps.push(['w<sub>net</sub> = c<sub>s</sub>c<sub>d</sub>·ψ<sub>s</sub>·c<sub>p,net</sub>·q<sub>p</sub>(z<sub>e</sub>) – działa w obu kierunkach', 'PN-EN 1991-1-4, (5.1), 7.4.1', '1-4:7.4']);
@@ -5832,6 +5904,351 @@ root.GEO = GEO;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
+<script>/* js/windsvg.js */
+/* =====================================================================
+   ObciążeniaEC – schematy wiatru: rzut z wymiarami i strefami, przekrój,
+   strefy klikane (data-wz="idPozycji|klucz strefy"), barwy wg ciśnienia
+   ===================================================================== */
+(function (root) {
+'use strict';
+const EC = root.EC, SVG = root.SVG;
+const { F, Fs, clamp, isNum, rad } = EC;
+const esc = SVG.esc;
+const W = 720;                       // szerokość obszaru rysunku (jednostki viewBox)
+const FT = 13;                       // podstawowy rozmiar czcionki
+const sub = s => String(s).replace(/(₀|₉₀|₁₈₀)$/, '').replace(/^Fup$/, 'F<tspan dy="3" font-size="9">up</tspan>').replace(/^Flow$/, 'F<tspan dy="3" font-size="9">low</tspan>');
+const fx = v => v.toFixed(1);
+
+/* ---------- linie wymiarowe ---------- */
+function dimH(x1, x2, y, txt, up) {
+  if (!(x2 - x1 > 0.5)) return '';
+  const t = up === false ? y + 15 : y - 5;
+  return `<g class="dim"><line x1="${fx(x1)}" y1="${fx(y)}" x2="${fx(x2)}" y2="${fx(y)}"/><line x1="${fx(x1)}" y1="${fx(y - 5)}" x2="${fx(x1)}" y2="${fx(y + 5)}"/><line x1="${fx(x2)}" y1="${fx(y - 5)}" x2="${fx(x2)}" y2="${fx(y + 5)}"/><path d="M${fx(x1 - 3)} ${fx(y + 3)}L${fx(x1 + 3)} ${fx(y - 3)}M${fx(x2 - 3)} ${fx(y + 3)}L${fx(x2 + 3)} ${fx(y - 3)}"/>${x2 - x1 > 22 ? `<text x="${fx((x1 + x2) / 2)}" y="${fx(t)}" text-anchor="middle">${txt}</text>` : ''}</g>`;
+}
+function dimV(x, y1, y2, txt, left, rot) {
+  if (!(y2 - y1 > 0.5)) return '';
+  const tx = left === false ? x + 8 : x - 6;
+  if (rot) return `<g class="dim"><line x1="${fx(x)}" y1="${fx(y1)}" x2="${fx(x)}" y2="${fx(y2)}"/><line x1="${fx(x - 5)}" y1="${fx(y1)}" x2="${fx(x + 5)}" y2="${fx(y1)}"/><line x1="${fx(x - 5)}" y1="${fx(y2)}" x2="${fx(x + 5)}" y2="${fx(y2)}"/><path d="M${fx(x - 3)} ${fx(y1 + 3)}L${fx(x + 3)} ${fx(y1 - 3)}M${fx(x - 3)} ${fx(y2 + 3)}L${fx(x + 3)} ${fx(y2 - 3)}"/><text transform="translate(${fx(left === false ? x + 15 : x - 6)},${fx((y1 + y2) / 2)}) rotate(-90)" text-anchor="middle">${txt}</text></g>`;
+  return `<g class="dim"><line x1="${fx(x)}" y1="${fx(y1)}" x2="${fx(x)}" y2="${fx(y2)}"/><line x1="${fx(x - 5)}" y1="${fx(y1)}" x2="${fx(x + 5)}" y2="${fx(y1)}"/><line x1="${fx(x - 5)}" y1="${fx(y2)}" x2="${fx(x + 5)}" y2="${fx(y2)}"/><path d="M${fx(x - 3)} ${fx(y1 + 3)}L${fx(x + 3)} ${fx(y1 - 3)}M${fx(x - 3)} ${fx(y2 + 3)}L${fx(x + 3)} ${fx(y2 - 3)}"/>${y2 - y1 > 16 ? `<text x="${fx(tx)}" y="${fx((y1 + y2) / 2 + 4)}" text-anchor="${left === false ? 'start' : 'end'}">${txt}</text>` : ''}</g>`;
+}
+/* łańcuch wymiarowy wzdłuż x (granice w metrach) */
+function chainH(xs, X, y, up) {
+  let s = '';
+  const pts = Array.from(new Set(xs.map(v => +v.toFixed(4)))).sort((a, b) => a - b);
+  for (let i = 0; i < pts.length - 1; i++) s += dimH(X(pts[i]), X(pts[i + 1]), y, F(pts[i + 1] - pts[i], 2), up);
+  return s;
+}
+function chainV_(ys, Y, x, left) {
+  let s = '';
+  const pts = Array.from(new Set(ys.map(v => +v.toFixed(4)))).sort((a, b) => a - b);
+  for (let i = 0; i < pts.length - 1; i++) s += dimV(x, Y(pts[i]), Y(pts[i + 1]), F(pts[i + 1] - pts[i], 2), left);
+  return s;
+}
+function windArrows(x1, x2, ys, label) {
+  let s = ys.map(y => SVG.arrow(x1, y, x2, y)).join('');
+  if (label) s += `<text x="${fx(x1)}" y="${fx(ys[0] - 10)}" class="wlab">${label}</text>`;
+  return s;
+}
+/* ---------- barwy i etykiety stref ---------- */
+function govVal(row) { if (!row) return NaN; return Math.abs(row.min.w) >= Math.abs(row.max.w) ? row.min.w : row.max.w; }
+function zoneFill(row, maxAbs) {
+  const v = govVal(row);
+  if (!isNum(v) || maxAbs <= 0) return 'class="wz0"';
+  const op = (0.12 + 0.6 * Math.min(Math.abs(v) / maxAbs, 1)).toFixed(2);
+  return v < 0 ? `class="wzs" style="fill-opacity:${op}"` : `class="wzp" style="fill-opacity:${op}"`;
+}
+function zoneLabel(cx, cy, w, h, row, key) {
+  const name = sub(row ? row.base : key);
+  if (w < 13 || h < 13) return '';
+  const v = govVal(row);
+  const both = row && row.max.w > 0.0005 && row.min.w < -0.0005;
+  const vt = both ? Fs(row.max.w, 2) + ' / ' + Fs(row.min.w, 2) : Fs(v, 2);
+  if (w >= (both ? 92 : 46) && h >= 34) return `<text x="${fx(cx)}" y="${fx(cy - 2)}" text-anchor="middle" class="zl">${name}</text><text x="${fx(cx)}" y="${fx(cy + 14)}" text-anchor="middle" class="zv">${vt}</text>`;
+  if (w >= 46 && h >= 34) return `<text x="${fx(cx)}" y="${fx(cy - 2)}" text-anchor="middle" class="zl">${name}</text><text x="${fx(cx)}" y="${fx(cy + 14)}" text-anchor="middle" class="zv">${Fs(v, 2)}</text>`;
+  if (w >= 30 && h >= 22) return `<text x="${fx(cx)}" y="${fx(cy + 5)}" text-anchor="middle" class="zl" style="font-size:12px">${name}</text>`;
+  return `<text x="${fx(cx)}" y="${fx(cy + 4)}" text-anchor="middle" class="zl" style="font-size:10px">${name}</text>`;
+}
+/* prostokąt strefy (współrzędne w metrach planu) */
+function zrect(id, key, rows, X, Y, x0, x1, y0, y1, sel, maxAbs, clip) {
+  const a = X(x0), b = X(x1), c = Y(y0), d = Y(y1);
+  if (b - a < 0.4 || d - c < 0.4) return '';
+  const row = rows[key];
+  const on = sel === key ? ' wzsel' : '';
+  return `<g data-wz="${esc(id)}|${esc(key)}" class="wzg${on}"${clip ? ` clip-path="url(#${clip})"` : ''}><rect x="${fx(a)}" y="${fx(c)}" width="${fx(b - a)}" height="${fx(d - c)}" ${zoneFill(row, maxAbs)}/>${zoneLabel((a + b) / 2, (c + d) / 2, b - a, d - c, row, key)}<title>${esc(key)}: ${row ? Fs(row.max.w, 3) + ' / ' + Fs(row.min.w, 3) + ' kN/m²' : ''}</title></g>`;
+}
+function zpoly(id, key, rows, pts, sel, maxAbs, lx, ly) {
+  const row = rows[key];
+  const on = sel === key ? ' wzsel' : '';
+  return `<g data-wz="${esc(id)}|${esc(key)}" class="wzg${on}"><path d="M${pts.map(p => fx(p[0]) + ' ' + fx(p[1])).join('L')}Z" ${zoneFill(row, maxAbs)}/>${isNum(lx) ? zoneLabel(lx, ly, 60, 40, row, key) : ''}<title>${esc(key)}</title></g>`;
+}
+function badge(id, key, rows, x, y, sel, maxAbs) {
+  const row = rows[key];
+  const on = sel === key ? ' wzsel' : '';
+  return `<g data-wz="${esc(id)}|${esc(key)}" class="wzg${on}"><rect x="${fx(x - 17)}" y="${fx(y - 12)}" width="34" height="24" rx="5" ${zoneFill(row, maxAbs)}/><rect x="${fx(x - 17)}" y="${fx(y - 12)}" width="34" height="24" rx="5" class="wzb"/><text x="${fx(x)}" y="${fx(y + 5)}" text-anchor="middle" class="zl" style="font-size:13px">${sub(row ? row.base : key)}</text><title>${esc(key)}: ${row ? Fs(row.max.w, 3) + ' / ' + Fs(row.min.w, 3) + ' kN/m²' : ''}</title></g>`;
+}
+function rowsMap(rows) { const m = {}; (rows || []).forEach(r => { if (!r.head) m[r.z] = r; }); return m; }
+function maxAbsOf(rows) { let m = 0; (rows || []).forEach(r => { if (r.head) return; m = Math.max(m, Math.abs(r.max.w), Math.abs(r.min.w)); }); return m; }
+function legend(y, maxAbs, txt) {
+  return (txt ? `<text x="8" y="${fx(y + 10)}" class="t2" style="font-size:11.5px">${txt}</text>` : '') + `<g transform="translate(${W - 238},${y})"><rect x="0" y="0" width="22" height="12" class="wzs" style="fill-opacity:.65"/><text x="27" y="10" class="t2" style="font-size:11px">ssanie</text><rect x="80" y="0" width="22" height="12" class="wzp" style="fill-opacity:.65"/><text x="107" y="10" class="t2" style="font-size:11px">parcie</text><text x="158" y="10" class="t2" style="font-size:11px">w<tspan dy="3" font-size="8">net</tspan><tspan dy="-3"> [kN/m²]</tspan></text></g>`;
+}
+
+/* =====================================================================
+   BUDYNKI: ściany, dachy płaskie, jedno-, dwu- i czterospadowe
+   ===================================================================== */
+function zbox(id, key, rows, x, y, w, h, sel, maxAbs, clip) {
+  if (w < 0.4 || h < 0.4) return '';
+  const row = rows[key];
+  const on = sel === key ? ' wzsel' : '';
+  return `<g data-wz="${esc(id)}|${esc(key)}" class="wzg${on}"${clip ? ` clip-path="url(#${clip})"` : ''}><rect x="${fx(x)}" y="${fx(y)}" width="${fx(w)}" height="${fx(h)}" ${zoneFill(row, maxAbs)}/>${zoneLabel(x + w / 2, y + h / 2, w, h, row, key)}<title>${esc(key)}: ${row ? Fs(row.max.w, 3) + ' / ' + Fs(row.min.w, 3) + ' kN/m²' : ''}</title></g>`;
+}
+function bld(id, shape, r, D, sel, opt) {
+  opt = opt || {};
+  const rows = rowsMap(D.rows), maxAbs = maxAbsOf(D.rows);
+  const b = D.b, d = D.d, e = D.e, h = r.h;
+  const e10 = Math.min(e / 10, d), e4 = Math.min(e / 4, b / 2), e2 = Math.min(e / 2, d);
+  const sfx = (shape === 'walls' || shape === 'flat') ? (D.th === '0' ? '' : '₉₀') : (D.th === '0' ? '₀' : D.th === '90' ? '₉₀' : '₁₈₀');
+  const K = z => z + sfx;
+  const walls = shape === 'walls';
+  const vert = b > d * 1.15;                 // wiatr z góry – rzut szerszy niż wyższy
+  const T = walls ? 18 : 0;                  // grubość pasów stref ścian
+  const mL = vert ? 104 : 96, mR = vert ? 104 : 136, mT = vert ? 92 : 64;
+  const availW = W - mL - mR;
+  const Wpl = vert ? b : d, Hpl = vert ? d : b;
+  const sc = Math.min(availW / Wpl, (walls ? 300 : 380) / Hpl);
+  const x0 = mL + (availW - Wpl * sc) / 2, y0 = mT;
+  const pw = Wpl * sc, ph = Hpl * sc;
+  const P = (u, v) => vert ? [x0 + v * sc, y0 + u * sc] : [x0 + u * sc, y0 + v * sc];
+  const rectUV = (u0, u1, v0, v1) => { const [a1, b1] = P(u0, v0), [a2, b2] = P(u1, v1); return [Math.min(a1, a2), Math.min(b1, b2), Math.abs(a2 - a1), Math.abs(b2 - b1)]; };
+  const zr = (key, u0, u1, v0, v1, clip) => { const [x, y, w, hh] = rectUV(u0, u1, v0, v1); return zbox(id, key, rows, x, y, w, hh, sel, maxAbs, clip); };
+  const U = m => vert ? y0 + m * sc : x0 + m * sc;   // współrzędna ekranowa wzdłuż wiatru
+  const V = m => vert ? x0 + m * sc : y0 + m * sc;   // w poprzek wiatru
+  let s = '', defs = '';
+  /* strzałki wiatru */
+  if (vert) {
+    const ax = [0.2, 0.5, 0.8].map(f => x0 + pw * f);
+    s += ax.map(x => SVG.arrow(x, 30, x, y0 - T - 12)).join('');
+    s += `<text x="8" y="20" class="wlab">wiatr θ = ${D.th}°</text>`;
+  } else s += windArrows(8, x0 - T - 12, [0.25, 0.5, 0.75].map(f => y0 + ph * f), 'wiatr θ = ' + D.th + '°');
+  const capt = `b = ${F(b, 2)} m · d = ${F(d, 2)} m · e = min(b; 2h) = ${F(e, 2)} m`;
+  s += `<rect x="${fx(x0)}" y="${fx(y0)}" width="${fx(pw)}" height="${fx(ph)}" class="bldp"/>`;
+  /* łańcuchy wymiarowe: U – wzdłuż wiatru, V – w poprzek */
+  const chainU = [], chainV = [0, b];
+  const edgeU = (u, txt) => { const inw = u <= 0 ? 13 : -6; if (vert) return `<text x="${fx(x0 + pw / 2)}" y="${fx(U(u) + inw + (u <= 0 ? 0 : 0))}" text-anchor="middle" class="elab">${txt}</text>`; const x = U(u) + (u <= 0 ? 13 : -6); return `<text transform="translate(${fx(x)},${fx(y0 + ph / 2)}) rotate(-90)" text-anchor="middle" class="elab">${txt}</text>`; };
+  const edgeV = (v, txt) => { if (vert) { const x = V(v) + (v <= 0 ? 13 : -6); return `<text transform="translate(${fx(x)},${fx(y0 + ph / 2)}) rotate(-90)" text-anchor="middle" class="elab">${txt}</text>`; } return `<text x="${fx(x0 + pw / 2)}" y="${fx(V(v) + (v <= 0 ? 13 : -6))}" text-anchor="middle" class="elab">${txt}</text>`; };
+  const ridgeU = u => { const [xa, ya] = P(u, 0), [xb, yb] = P(u, b); return `<line class="ridge" x1="${fx(xa - (vert ? 10 : 0))}" y1="${fx(ya - (vert ? 0 : 10))}" x2="${fx(xb + (vert ? 10 : 0))}" y2="${fx(yb + (vert ? 0 : 10))}"/>`; };
+  const ridgeV = v => { const [xa, ya] = P(0, v), [xb, yb] = P(d, v); return `<line class="ridge" x1="${fx(xa - (vert ? 0 : 10))}" y1="${fx(ya - (vert ? 10 : 0))}" x2="${fx(xb + (vert ? 0 : 10))}" y2="${fx(yb + (vert ? 10 : 0))}"/>`; };
+  if (walls) {
+    s += `<text x="${fx(x0 + pw / 2)}" y="${fx(y0 + ph / 2 + 4)}" text-anchor="middle" class="t2">rzut budynku</text>`;
+    const band = (key, x, y, w, hh) => zbox(id, key, rows, x, y, w, hh, sel, maxAbs);
+    s += vert ? band(K('D'), x0, y0 - T, pw, T) + band(K('E'), x0, y0 + ph, pw, T) : band(K('D'), x0 - T, y0, T, ph) + band(K('E'), x0 + pw, y0, T, ph);
+    let ua = 0;
+    D.zl.forEach(([z, l]) => {
+      const a = U(ua), len = l * sc;
+      s += vert ? band(K(z), x0 - T, a, T, len) + band(K(z), x0 + pw, a, T, len) : band(K(z), a, y0 - T, len, T) + band(K(z), a, y0 + ph, len, T);
+      ua += l; chainU.push(ua);
+    });
+    chainU.unshift(0);
+  } else if (shape === 'flat') {
+    s += zr(K('F'), 0, e10, 0, e4) + zr(K('F'), 0, e10, b - e4, b) + zr(K('G'), 0, e10, e4, b - e4) + zr(K('H'), e10, e2, 0, b);
+    if (d > e / 2) s += zr(K('I'), e2, d, 0, b);
+    chainU.push(0, e10, e2, d); chainV.push(e4, b - e4);
+  } else if (shape === 'mono' && D.th !== '90') {
+    s += zr(K('F'), 0, e10, 0, e4) + zr(K('F'), 0, e10, b - e4, b) + zr(K('G'), 0, e10, e4, b - e4) + zr(K('H'), e10, d, 0, b);
+    chainU.push(0, e10, d); chainV.push(e4, b - e4);
+    const low = D.th === '0';
+    s += edgeU(0, low ? 'krawędź niższa' : 'krawędź wyższa') + edgeU(d, low ? 'krawędź wyższa' : 'krawędź niższa');
+  } else if (shape === 'mono') {
+    s += zr(K('Fup'), 0, e10, 0, e4) + zr(K('Flow'), 0, e10, b - e4, b) + zr(K('G'), 0, e10, e4, b - e4) + zr(K('H'), e10, e2, 0, b);
+    if (d > e / 2) s += zr(K('I'), e2, d, 0, b);
+    chainU.push(0, e10, e2, d); chainV.push(e4, b - e4);
+    s += edgeV(0, 'krawędź wyższa') + edgeV(b, 'krawędź niższa');
+  } else if (shape === 'duo' && D.th === '0') {
+    const ur = d / 2, er = Math.min(e / 10, d / 2);
+    s += zr(K('F'), 0, er, 0, e4) + zr(K('F'), 0, er, b - e4, b) + zr(K('G'), 0, er, e4, b - e4) + zr(K('H'), er, ur, 0, b) + zr(K('J'), ur, ur + er, 0, b) + zr(K('I'), ur + er, d, 0, b);
+    s += ridgeU(ur);
+    chainU.push(0, er, ur, ur + er, d); chainV.push(e4, b - e4);
+  } else if (shape === 'duo') {
+    s += zr(K('F'), 0, e10, 0, e4) + zr(K('F'), 0, e10, b - e4, b) + zr(K('G'), 0, e10, e4, b - e4) + zr(K('H'), e10, e2, 0, b);
+    if (d > e / 2) s += zr(K('I'), e2, d, 0, b);
+    s += ridgeV(b / 2);
+    chainU.push(0, e10, e2, d); chainV.push(e4, b - e4);
+  } else if (shape === 'hip') {
+    const ext = (r.B / 2) * Math.tan(rad(r.alpha)) / Math.max(Math.tan(rad(r.alpha90)), 1e-6); // zasięg połaci szczytowej wzdłuż L
+    let Lw, Lee, Sd1, Sd2, ur1, depth, uLine;
+    if (D.th === '0') { const vh = Math.min(ext, b / 2); Lw = [[0, 0], [0, b], [d / 2, b - vh], [d / 2, vh]]; Lee = [[d, 0], [d, b], [d / 2, b - vh], [d / 2, vh]]; Sd1 = [[0, 0], [d, 0], [d / 2, vh]]; Sd2 = [[0, b], [d, b], [d / 2, b - vh]]; ur1 = d / 2; depth = vh; uLine = d / 4; }
+    else { const uh = Math.min(ext, d / 2); Lw = [[0, 0], [0, b], [uh, b / 2]]; Lee = [[d, 0], [d, b], [d - uh, b / 2]]; Sd1 = [[0, 0], [d, 0], [d - uh, b / 2], [uh, b / 2]]; Sd2 = [[0, b], [d, b], [d - uh, b / 2], [uh, b / 2]]; ur1 = d - uh; depth = b / 2; uLine = uh / 2; }
+    const PP = poly => poly.map(([u, v]) => P(u, v));
+    const path = poly => 'M' + PP(poly).map(p => fx(p[0]) + ' ' + fx(p[1])).join('L') + 'Z';
+    const cw = 'cw' + id + D.th, cl = 'cl' + id + D.th;
+    defs += `<clipPath id="${cw}"><path d="${path(Lw)}"/></clipPath><clipPath id="${cl}"><path d="${path(Lee)}"/></clipPath>`;
+    s += zpoly(id, K('N'), rows, PP(Sd1), sel, maxAbs) + zpoly(id, K('N'), rows, PP(Sd2), sel, maxAbs);
+    s += zr(K('F'), 0, e10, 0, e4, cw) + zr(K('F'), 0, e10, b - e4, b, cw) + zr(K('G'), 0, e10, e4, b - e4, cw) + zr(K('H'), e10, d, 0, b, cw);
+    s += zr(K('J'), ur1, ur1 + e10, 0, b, cl) + zr(K('I'), ur1 + e10, d, 0, b, cl);
+    s += `<path class="ridge" d="${path(Lw)}"/><path class="ridge" d="${path(Lee)}"/>`;
+    [['M', Math.max(0.22 * d, e10 + 0.06 * d), 0.3], ['L', uLine + 0.05 * d, 0.6], ['K', 0.86 * d, 0.3], ['N', 0.6 * d, 0.62]].forEach(([z, uu, fv]) => {
+      const vv = depth * fv;
+      const [ax, ay] = P(uu, vv), [bx, by] = P(uu, b - vv);
+      s += badge(id, K(z), rows, ax, ay, sel, maxAbs) + badge(id, K(z), rows, bx, by, sel, maxAbs);
+    });
+    chainU.push(0, e10, d); chainV.push(e4, b - e4);
+  }
+  /* wymiary rzutu */
+  const tU = walls ? T : 0;
+  if (vert) {
+    s += chainV_(chainU, U, x0 - tU - 16, true);
+    s += chainH(chainV, V, y0 + ph + tU + 18, false);
+    s += dimH(V(0), V(b), y0 + ph + tU + 46, 'b = ' + F(b, 2) + ' m', false);
+    s += dimV(x0 + pw + tU + 18, U(0), U(d), 'd = ' + F(d, 2) + ' m', false, true);
+  } else {
+    s += chainH(chainU, U, y0 - tU - 14);
+    s += chainV_(chainV, V, x0 + pw + tU + 16, false);
+    s += dimH(U(0), U(d), y0 + ph + tU + 26, 'd = ' + F(d, 2) + ' m', false);
+    s += dimV(x0 + pw + tU + 74, V(0), V(b), 'b = ' + F(b, 2) + ' m', false, true);
+  }
+  let yy = y0 + ph + tU + (vert ? 92 : 70);
+  if (shape === 'hip') { s += `<text x="${fx(mL)}" y="${fx(yy - 6)}" class="t2" style="font-size:11.5px">strefy K, L, M, N na połaciach bocznych zaznaczono poglądowo (rys. 7.9)</text>`; yy += 26; }
+  if (walls) {
+    /* elewacja ściany bocznej (wiatr z lewej) */
+    const se = Math.min(availW / d, 130 / Math.max(h, 0.1)), xs = mL + (availW - d * se) / 2, hh = h * se;
+    s += `<text x="${fx(xs)}" y="${fx(yy - 10)}" class="sec">Ściana boczna – strefy A, B, C (wiatr z lewej)</text>`;
+    let ua = 0;
+    D.zl.forEach(([z, l]) => { s += zbox(id, K(z), rows, xs + ua * se, yy, l * se, hh, sel, maxAbs); ua += l; });
+    s += windArrows(8, xs - 26, [yy + hh * 0.35, yy + hh * 0.7]);
+    s += `<line class="gnd" x1="${fx(xs - 10)}" y1="${fx(yy + hh)}" x2="${fx(xs + d * se + 10)}" y2="${fx(yy + hh)}"/>`;
+    s += dimV(xs + d * se + 16, yy, yy + hh, 'h = ' + F(h, 2) + ' m', false);
+    s += chainH([0].concat(D.zl.reduce((acc, [, l]) => acc.concat((acc.length ? acc[acc.length - 1] : 0) + l), [])), m => xs + m * se, yy + hh + 18, false);
+    yy += hh + 66;
+    /* elewacja ściany nawietrznej D */
+    const sw = Math.min(availW / b, 150 / Math.max(h, 0.1)), xw = mL + (availW - b * sw) / 2, hw = h * sw;
+    const prof = D.profile || [];
+    s += `<text x="${fx(xw)}" y="${fx(yy - 10)}" class="sec">Ściana nawietrzna D – widok od strony wiatru${prof.length > 1 ? ' (pasy wysokości odniesienia wg rys. 7.4)' : ''}</text>`;
+    prof.forEach(p => {
+      const ya = yy + hw - p.z1 * sw, yb = yy + hw - p.z0 * sw;
+      const on = sel === K('D') ? ' wzsel' : '';
+      s += `<g data-wz="${esc(id)}|${esc(K('D'))}" class="wzg${on}"><rect x="${fx(xw)}" y="${fx(ya)}" width="${fx(b * sw)}" height="${fx(yb - ya)}" ${zoneFill({ min: { w: p.wD }, max: { w: p.wD } }, maxAbs)}/>${yb - ya > 30 ? `<text x="${fx(xw + b * sw / 2)}" y="${fx((ya + yb) / 2 - 3)}" text-anchor="middle" class="zl" style="font-size:13px">D · z<tspan dy="3" font-size="9">e</tspan><tspan dy="-3"> = ${F(p.ze, 1)} m</tspan></text><text x="${fx(xw + b * sw / 2)}" y="${fx((ya + yb) / 2 + 13)}" text-anchor="middle" class="zv">w<tspan dy="3" font-size="8">e</tspan><tspan dy="-3"> = ${Fs(p.wD, 2)} kN/m²</tspan></text>` : ''}<title>D: z_e = ${F(p.ze, 2)} m, q_p = ${F(p.qp, 3)} kN/m²</title></g>`;
+    });
+    s += `<line class="gnd" x1="${fx(xw - 10)}" y1="${fx(yy + hw)}" x2="${fx(xw + b * sw + 10)}" y2="${fx(yy + hw)}"/>`;
+    s += dimH(xw, xw + b * sw, yy + hw + 18, 'b = ' + F(b, 2) + ' m', false);
+    s += chainV_(prof.map(p => p.z0).concat([h]).map(z => h - z), m => yy + m * sw, xw + b * sw + 16, false);
+    yy += hw + 40;
+    s += legend(yy - 6, maxAbs, capt);
+    return wrap(s, defs, yy + 14, opt);
+  }
+  /* ---------- przekrój wzdłuż kierunku wiatru ---------- */
+  const ss = Math.min(availW / d, 120 / Math.max(h, 0.1)), xs = mL + (availW - d * ss) / 2;
+  const yT = yy; yy += 26;
+  const base = yy + h * ss;
+  const Xs = u => xs + u * ss, Ys = z => base - z * ss;
+  let sec = '', title = 'Przekrój wzdłuż kierunku wiatru';
+  const a = r.alpha || 0, t = Math.tan(rad(Math.abs(a)));
+  if (shape === 'flat') {
+    const hp = r.hp || 0;
+    sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(0))}V${fx(Ys(h))}H${fx(Xs(d))}V${fx(Ys(0))}Z"/>`;
+    if (hp > 0) sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(h))}v${fx(-hp * ss)}h5V${fx(Ys(h))}ZM${fx(Xs(d))} ${fx(Ys(h))}v${fx(-hp * ss)}h-5V${fx(Ys(h))}Z"/><text x="${fx(Xs(0) + 8)}" y="${fx(Ys(h + hp) + 4)}" class="t2" style="font-size:11px">attyka h<tspan dy="3" font-size="8">p</tspan><tspan dy="-3"> = ${F(hp, 2)} m</tspan></text>`;
+  } else if (shape === 'mono' && D.th !== '90') {
+    const hl = Math.max(h - d * t, 0.3 * h), low = D.th === '0';
+    const hL = low ? hl : h, hR = low ? h : hl;
+    sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(0))}V${fx(Ys(hL))}L${fx(Xs(d))} ${fx(Ys(hR))}V${fx(Ys(0))}Z"/><text x="${fx(Xs(d / 2))}" y="${fx(Ys((hL + hR) / 2) - 8)}" text-anchor="middle" class="t2">α = ${F(a, 1)}°</text>`;
+  } else if (shape === 'duo' && D.th === '0') {
+    const dz = Math.min((d / 2) * t, 0.7 * h);
+    const eav = a >= 0 ? h - dz : h, mid = a >= 0 ? h : h - dz;
+    sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(0))}V${fx(Ys(eav))}L${fx(Xs(d / 2))} ${fx(Ys(mid))}L${fx(Xs(d))} ${fx(Ys(eav))}V${fx(Ys(0))}Z"/><text x="${fx(Xs(d / 4))}" y="${fx(Ys(Math.max(eav, mid)) - 8)}" text-anchor="middle" class="t2">α = ${F(a, 1)}°</text>`;
+  } else if (shape === 'hip' && D.th === '0') {
+    const he = Math.max(h - (d / 2) * Math.tan(rad(r.alpha)), 0.3 * h);
+    sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(0))}V${fx(Ys(he))}L${fx(Xs(d / 2))} ${fx(Ys(h))}L${fx(Xs(d))} ${fx(Ys(he))}V${fx(Ys(0))}Z"/><text x="${fx(Xs(d / 4))}" y="${fx(Ys(he) - 10)}" class="t2">α₀ = ${F(r.alpha, 1)}°</text>`;
+  } else {
+    const eave = shape === 'hip' ? Math.max(h - (r.B / 2) * Math.tan(rad(r.alpha)), 0.3 * h) : shape === 'duo' ? Math.max(h - (r.B / 2) * t, 0.3 * h) : Math.max(h - r.B * t, 0.3 * h);
+    if (shape === 'hip') {
+      const ext = Math.min((r.B / 2) * Math.tan(rad(r.alpha)) / Math.max(Math.tan(rad(r.alpha90)), 1e-6), d / 2);
+      sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(0))}V${fx(Ys(eave))}L${fx(Xs(ext))} ${fx(Ys(h))}H${fx(Xs(d - ext))}L${fx(Xs(d))} ${fx(Ys(eave))}V${fx(Ys(0))}Z"/><text x="${fx(Xs(0) + 6)}" y="${fx(Ys(eave) - 10)}" class="t2">α₉₀ = ${F(r.alpha90, 1)}°</text>`;
+    } else sec += `<path class="bldp" d="M${fx(Xs(0))} ${fx(Ys(0))}V${fx(Ys(h))}H${fx(Xs(d))}V${fx(Ys(0))}Z"/><line class="ridge" x1="${fx(Xs(0))}" y1="${fx(Ys(eave))}" x2="${fx(Xs(d))}" y2="${fx(Ys(eave))}"/><text x="${fx(Xs(0) + 6)}" y="${fx(Ys(eave) + 15)}" class="t2" style="font-size:11px">okap${shape === 'mono' ? ' niższy' : ''}</text><text x="${fx(Xs(0) + 6)}" y="${fx(Ys(h) - 5)}" class="t2" style="font-size:11px">${shape === 'duo' ? 'kalenica' : 'krawędź wyższa'}</text>`;
+    title = 'Widok z boku – wiatr wzdłuż ' + (shape === 'mono' ? 'krawędzi' : 'kalenicy');
+  }
+  s += `<text x="${fx(xs)}" y="${fx(yT - 12)}" class="sec">${title}</text>` + sec;
+  s += windArrows(8, xs - 26, [Ys(h * 0.3), Ys(h * 0.7)]);
+  s += `<line class="gnd" x1="${fx(xs - 14)}" y1="${fx(base)}" x2="${fx(xs + d * ss + 14)}" y2="${fx(base)}"/>`;
+  s += dimV(xs + d * ss + 18, Ys(h), Ys(0), 'h = ' + F(h, 2) + ' m', false);
+  s += dimH(xs, xs + d * ss, base + 18, 'd = ' + F(d, 2) + ' m', false);
+  yy = base + 46;
+  s += legend(yy - 6, maxAbs, capt);
+  return wrap(s, defs, yy + 14, opt);
+}
+function wrap(s, defs, H, opt) {
+  return `<svg class="wsvg" viewBox="0 0 ${W} ${Math.ceil(H)}" role="img" aria-label="Schemat stref wiatru"${opt.attr ? ' ' + opt.attr : ''}>${defs ? `<defs>${defs}</defs>` : ''}${s}</svg>`;
+}
+
+/* =====================================================================
+   WIATY – rzut ze strefami A, B, C (D) i przekrój
+   ===================================================================== */
+function canopy(id, r, rows0, sel, duo) {
+  const rows = rowsMap(rows0), maxAbs = maxAbsOf(rows0);
+  const b = r.b, d = r.d, h = r.h, a = r.alpha || 0;
+  const vert = b > d * 1.15;
+  const mL = vert ? 104 : 96, mR = vert ? 104 : 136, y0 = vert ? 92 : 64;
+  const availW = W - mL - mR, Wpl = vert ? b : d, Hpl = vert ? d : b;
+  const sc = Math.min(availW / Wpl, 320 / Hpl);
+  const x0 = mL + (availW - Wpl * sc) / 2, pw = Wpl * sc, ph = Hpl * sc;
+  const P = (u, v) => vert ? [x0 + v * sc, y0 + u * sc] : [x0 + u * sc, y0 + v * sc];
+  const U = m => vert ? y0 + m * sc : x0 + m * sc, V = m => vert ? x0 + m * sc : y0 + m * sc;
+  const zr = (key, u0, u1, v0, v1) => { const [a1, b1] = P(u0, v0), [a2, b2] = P(u1, v1); return zbox(id, key, rows, Math.min(a1, a2), Math.min(b1, b2), Math.abs(a2 - a1), Math.abs(b2 - b1), sel, maxAbs); };
+  const d10 = d / 10, b10 = b / 10;
+  let s = `<rect x="${fx(x0)}" y="${fx(y0)}" width="${fx(pw)}" height="${fx(ph)}" class="bldp"/>`;
+  if (vert) { s += [0.2, 0.5, 0.8].map(f => SVG.arrow(x0 + pw * f, 30, x0 + pw * f, y0 - 12)).join('') + `<text x="8" y="20" class="wlab">wiatr</text>`; }
+  else s += windArrows(8, x0 - 12, [0.25, 0.5, 0.75].map(f => y0 + ph * f), 'wiatr');
+  if (duo) { s += zr('A', d10, d / 2 - d10 / 2, b10, b - b10) + zr('A', d / 2 + d10 / 2, d - d10, b10, b - b10) + zr('D', d / 2 - d10 / 2, d / 2 + d10 / 2, b10, b - b10); }
+  else s += zr('A', d10, d - d10, b10, b - b10);
+  s += zr('B', 0, d10, 0, b) + zr('B', d - d10, d, 0, b);
+  s += zr('C', d10, d - d10, 0, b10) + zr('C', d10, d - d10, b - b10, b);
+  if (duo) { const [xa, ya] = P(d / 2, 0), [xb, yb] = P(d / 2, b); s += `<line class="ridge" x1="${fx(xa)}" y1="${fx(ya)}" x2="${fx(xb)}" y2="${fx(yb)}"/>`; }
+  const cu = [0, d10, d - d10, d].concat(duo ? [d / 2 - d10 / 2, d / 2 + d10 / 2] : []), cv = [0, b10, b - b10, b];
+  if (vert) {
+    s += chainV_(cu, U, x0 - 16, true) + chainH(cv, V, y0 + ph + 18, false);
+    s += dimH(V(0), V(b), y0 + ph + 46, 'b = ' + F(b, 2) + ' m', false) + dimV(x0 + pw + 18, U(0), U(d), 'd = ' + F(d, 2) + ' m', false, true);
+  } else {
+    s += chainH(cu, U, y0 - 14) + chainV_(cv, V, x0 + pw + 16, false);
+    s += dimH(U(0), U(d), y0 + ph + 26, 'd = ' + F(d, 2) + ' m', false) + dimV(x0 + pw + 74, V(0), V(b), 'b = ' + F(b, 2) + ' m', false, true);
+  }
+  let yy = y0 + ph + (vert ? 92 : 70);
+  const ss = Math.min(availW / d, 100 / Math.max(h, 0.1)), xs = mL + (availW - d * ss) / 2, base = yy + 24 + h * ss, t = Math.tan(rad(Math.abs(a)));
+  const Xs = u => xs + u * ss, Ys = z => base - z * ss;
+  const top = h * 0.85;
+  let sec = `<line class="roof" x1="${fx(Xs(d * 0.06))}" y1="${fx(Ys(0))}" x2="${fx(Xs(d * 0.06))}" y2="${fx(Ys(top))}"/><line class="roof" x1="${fx(Xs(d * 0.94))}" y1="${fx(Ys(0))}" x2="${fx(Xs(d * 0.94))}" y2="${fx(Ys(top))}"/>`;
+  if (duo) { const dz = Math.min((d / 2) * t, 0.5 * h) * (a >= 0 ? 1 : -1); sec += `<path class="roof" d="M${fx(Xs(0))} ${fx(Ys(top))}L${fx(Xs(d / 2))} ${fx(Ys(top + dz))}L${fx(Xs(d))} ${fx(Ys(top))}"/>`; }
+  else sec += `<path class="roof" d="M${fx(Xs(0))} ${fx(Ys(top))}L${fx(Xs(d))} ${fx(Ys(top + Math.min(d * t, 0.6 * h)))}"/>`;
+  s += `<text x="${fx(xs)}" y="${fx(yy - 12)}" class="sec">Przekrój – α = ${F(a, 1)}°, h = ${F(h, 2)} m</text>` + sec + `<line class="gnd" x1="${fx(xs - 14)}" y1="${fx(base)}" x2="${fx(xs + d * ss + 14)}" y2="${fx(base)}"/>` + windArrows(8, xs - 22, [Ys(h * 0.5)]) + dimV(xs + d * ss + 18, Ys(h), Ys(0), 'h = ' + F(h, 2) + ' m', false);
+  yy = base + 34;
+  s += `<text x="8" y="${fx(yy - 18)}" class="t2" style="font-size:11.5px">układ stref A–${duo ? 'D' : 'C'} wg rysunku w tabl. ${duo ? '7.7' : '7.6'} PN-EN 1991-1-4 (poglądowo)</text>` + legend(yy, maxAbs, 'b = ' + F(b, 2) + ' m · d = ' + F(d, 2) + ' m');
+  return wrap(s, '', yy + 20, {});
+}
+/* =====================================================================
+   ŚCIANA WOLNOSTOJĄCA / ATTYKA – elewacja ze strefami A–D
+   ===================================================================== */
+function fwall(id, r, c, sel) {
+  const rows0 = r.zones || [], rows = rowsMap(rows0), maxAbs = maxAbsOf(rows0);
+  const h = Math.max(EC.num(c.h, 1), 0.01), l = Math.max(EC.num(c.l, 10), 0.01);
+  const Ls = Math.min(l, 6 * h);
+  const mL = 70, mR = 40, y0 = 52;
+  const sc = Math.min((W - mL - mR) / Ls, 170 / h);
+  const x0 = mL, X = m => x0 + m * sc, Y = m => y0 + (h - m) * sc;
+  let s = '';
+  r.zones.forEach(z => {
+    const m = /([\d,]+)–([\d,]+)/.exec(z.dim);
+    const a0 = m ? +m[1].replace(',', '.') : 0, a1 = m ? +m[2].replace(',', '.') : Ls;
+    s += zrect(id, z.z, rows, X, mm => Y(h - mm), Math.min(a0, Ls), Math.min(a1, Ls), 0, h, sel, maxAbs);
+  });
+  if (l > Ls) s += `<text x="${fx(X(Ls) + 6)}" y="${fx(Y(h / 2))}" class="t2">… (l = ${F(l, 2)} m)</text>`;
+  s += `<line class="gnd" x1="${fx(x0 - 10)}" y1="${fx(Y(0))}" x2="${fx(X(Ls) + 10)}" y2="${fx(Y(0))}"/>`;
+  s += chainH([0, 0.3 * h, 2 * h, 4 * h].filter(v => v <= Ls).concat([Ls]), X, Y(0) + 18, false);
+  s += dimV(x0 - 14, Y(h), Y(0), 'h = ' + F(h, 2));
+  s += `<text x="${fx(x0)}" y="${fx(y0 - 16)}" class="sec">${c.mode === 'par' ? 'Attyka' : 'Ściana wolnostojąca'} – strefy od swobodnego końca (rys. 7.19)</text>`;
+  const yy = Y(0) + 54;
+  s += legend(yy - 12, maxAbs);
+  return wrap(s, '', yy + 8, {});
+}
+SVG.wind = { bld, canopy, fwall, govVal };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
 <script>/* js/ui-core.js */
 /* =====================================================================
    ObciążeniaEC – interfejs: rdzeń (stan, przeliczenie, pola, zdarzenia, pliki)
@@ -6104,7 +6521,7 @@ function normPopup(key, anchor) {
   const n = NORM[key]; if (!n) return;
   showPop(`<div class="nh"><h5>${n.t}</h5><div>${n.s}</div>${n.f ? `<div class="nf">${n.f}</div>` : ''}${n.h ? `<div class="nhh">${n.h}</div>` : ''}<div class="src">Streszczenie własne – nie zastępuje tekstu normy.</div></div>`, anchor);
 }
-function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="dlg">${html}</div>`; m.classList.add('on'); }
+function modal(html, cls) { const m = $('#modal'); m.innerHTML = `<div class="dlg ${cls || ''}">${html}</div>`; m.classList.add('on'); }
 function closeModal() { $('#modal').classList.remove('on'); $('#modal').innerHTML = ''; }
 function confirmDlg(title, text, okLabel, onOk) {
   modal(`<h3>${title}</h3><div>${text}</div><div class="dact"><button class="btn" data-act="mclose">Anuluj</button><button class="btn pri" id="mok">${okLabel || 'OK'}</button></div>`);
@@ -6583,9 +7000,10 @@ function windForm(c) {
   const bld = ['walls', 'flat', 'mono', 'duo', 'hip'].includes(c.type);
   if (bld) {
     const ridge = ['mono', 'duo', 'hip'].includes(c.type);
+    h += sub('Wymiary budynku');
     h += fNum(o, 'h', c.type === 'flat' ? 'wysokość do dachu (bez attyki)' : ridge ? 'wysokość do kalenicy / wyższej krawędzi' : 'wysokość budynku', 'm', { sym: 'h' });
-    h += fNum(o, 'b', ridge ? 'długość budynku (wzdłuż kalenicy)' : 'wymiar prostopadły do wiatru', 'm', { sym: 'b' });
-    h += fNum(o, 'd', ridge ? 'szerokość budynku (w kierunku spadku)' : 'wymiar równoległy do wiatru', 'm', { sym: 'd' });
+    h += fNum(o, 'b', ridge ? (c.type === 'mono' ? 'długość budynku (wzdłuż okapów)' : 'długość budynku (wzdłuż kalenicy)') : 'długość budynku', 'm', { sym: 'L' });
+    h += fNum(o, 'd', ridge ? 'szerokość budynku (w kierunku spadku)' : 'szerokość budynku', 'm', { sym: 'B', hint: 'Kierunki wiatru przełączasz na schemacie: θ = 0° – wiatr prostopadły do L (b = L, d = B); θ = 90° – równoległy do L (b = B, d = L)' + (c.type === 'mono' ? '; θ = 180° – na wyższą krawędź' : '') + '.' });
     if (ridge) h += fNum(o, 'a', c.type === 'hip' ? 'połać główna' : 'kąt nachylenia', '°', { sym: c.type === 'hip' ? 'α<sub>0</sub>' : 'α', hint: c.type === 'duo' ? 'ujemny – dach odwrócony (motylkowy)' : '' });
     if (c.type === 'hip') h += fNum(o, 'a90', 'połać boczna', '°', { sym: 'α<sub>90</sub>' });
     if (c.type === 'flat') {
@@ -6622,26 +7040,102 @@ function windForm(c) {
   return h;
 }
 const zLabel = z => String(z).replace('Fup', 'F<sub>up</sub>').replace('Flow', 'F<sub>low</sub>');
+const BLD_W = ['walls', 'flat', 'mono', 'duo', 'hip'];
+const thLbl = th => 'θ = ' + th + '°';
+function windDir(c, r) { const ds = r.dirs || []; if (!ds.length) return null; return ds.find(x => x.th === String(c.theta)) || ds[0]; }
+function windRowsOf(r, D) { return D ? D.rows : (r.zones || []).filter(z => !z.head); }
+function windSelKey(c, r, D) {
+  const rows = windRowsOf(r, D);
+  if (!rows.length) return '';
+  const k = (S.ui.wz || {})[c.id] || '';
+  const hit = rows.find(x => x.z === k);
+  if (hit) return hit.z;
+  const base = String(k).replace(/[₀₉₁₈]+$/, '');
+  const byBase = base && rows.find(x => x.base === base);
+  if (byBase) return byBase.z;
+  const def = String(r.def || '').replace(/[₀₉₁₈]+$/, '');
+  return (rows.find(x => x.base === def) || rows[0]).z;
+}
+function windDiagram(c, r, D, sel) {
+  if (D && BLD_W.includes(c.type)) return SVG.wind.bld(c.id, c.type, r, D, sel);
+  if (c.type === 'canopy1' || c.type === 'canopy2') return SVG.wind.canopy(c.id, r, r.zones, sel, c.type === 'canopy2');
+  if (c.type === 'fwall') return SVG.wind.fwall(c.id, r, c, sel);
+  return '';
+}
+function windDirSeg(c, r, D) {
+  if (!r.dirs || r.dirs.length < 2) return '';
+  return `<div class="seg wdirs" role="tablist" aria-label="Kierunek wiatru">${r.dirs.map(x => `<button type="button" data-wdir="${c.id}|${x.th}" class="${x === D ? 'on' : ''}" title="${esc(strip(x.head))}">${thLbl(x.th)}</button>`).join('')}</div>`;
+}
+function windZoneInfo(c, r, D, key) {
+  const rows = windRowsOf(r, D);
+  const z = rows.find(x => x.z === key);
+  if (!z) return '<div class="wzinfo"><div class="note">Kliknij strefę na schemacie lub w tabeli, aby zobaczyć ciśnienia.</div></div>';
+  const gQ = S.f.gQ * (S.f.useKFI ? (EC.KFI[S.f.rc] || 1) : 1);
+  const v = SVG.wind.govVal(z);
+  let h = `<div class="wzinfo"><div class="wzh"><span class="zb ${v < 0 ? 's' : 'p'}">${zLabel(z.base || z.z)}</span><b>Strefa ${zLabel(z.z)}</b>${D ? `<span>${esc(strip(D.head))}</span>` : ''}<span class="hint" style="margin:0">${z.dim || ''}</span></div>`;
+  h += '<div class="kvs">' + kv('w<sub>net,max</sub> (charakt.)', z.max.w, 'kN/m²', z.max.w >= 0 ? 'hl' : '', 3) + kv('w<sub>net,min</sub> (charakt.)', z.min.w, 'kN/m²', z.min.w < 0 ? 'hl' : '', 3) + kv('w<sub>d,max</sub> = γ<sub>Q</sub>·w', gQ * z.max.w, 'kN/m²', 'd', 3) + kv('w<sub>d,min</sub> = γ<sub>Q</sub>·w', gQ * z.min.w, 'kN/m²', 'd', 3) + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', '', 3) + (isNum(z.area) && z.area > 0 ? kv('pole strefy', z.area, 'm²', '', 2) : '') + '</div>';
+  if (z.cand && z.cand.length) {
+    const cellTxt = k => { const cl = z.cells && z.cells[k]; return cl ? `${Fs(cl[0], 2)} / ${Fs(cl[1], 2)}` : ''; };
+    h += `<div class="tw"><table class="t"><thead><tr><th>c<sub>pe,10</sub> / c<sub>pe,1</sub> → c<sub>pe</sub></th><th class="r">c<sub>pi</sub></th><th class="r">w<sub>e</sub></th><th class="r">w<sub>i</sub></th><th class="r">w<sub>net</sub></th><th class="r">w<sub>d</sub></th></tr></thead><tbody>${z.cand.map(x => `<tr${x === z.max || x === z.min ? ' class="gov"' : ''}><td>${cellTxt(x.k)} → <b>${Fs(x.cpe, 3)}</b></td><td class="num">${Fs(x.cpi, 2)}</td><td class="num">${F(x.we, 3)}</td><td class="num">${F(x.wi, 3)}</td><td class="num ${x.w >= 0 ? 'p' : 's'}">${F(x.w, 3)}</td><td class="num">${F(gQ * x.w, 3)}</td></tr>`).join('')}</tbody></table></div>`;
+    h += `<div class="note">c<sub>pe</sub> dla pola A = ${F(r.Aload, 1)} m²; w<sub>e</sub> = c<sub>s</sub>c<sub>d</sub>·q<sub>p</sub>·c<sub>pe</sub>, w<sub>i</sub> = q<sub>p</sub>·c<sub>pi</sub>, w<sub>net</sub> = w<sub>e</sub> − w<sub>i</sub>, w<sub>d</sub> = γ<sub>Q</sub>·w<sub>net</sub> [kN/m²]. Wiersze wyróżnione – wartości skrajne; dodatnie – parcie na powierzchnię, ujemne – ssanie.</div>`;
+  } else if (r.net) h += `<div class="note">c<sub>p,net</sub> = ${z.cpes.map(x => Fs(x, 2)).join(' / ')} – współczynnik wypadkowy (obie strony elementu); w = c<sub>s</sub>c<sub>d</sub>·${c.type === 'fwall' ? 'ψ<sub>s</sub>·' : ''}c<sub>p,net</sub>·q<sub>p</sub>.</div>`;
+  return h + '</div>';
+}
+function windTable(c, r, rows, sel, clickable) {
+  const gQ = S.f.gQ * (S.f.useKFI ? (EC.KFI[S.f.rc] || 1) : 1);
+  const tr = z => clickable ? ` data-wz="${c.id}|${esc(z.z)}"${z.z === sel ? ' class="sel"' : ''}` : '';
+  if (r.net) return `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Położenie</th><th class="r">c<sub>p,net</sub></th><th class="r">w<sub>k</sub> max</th><th class="r">w<sub>k</sub> min</th><th class="r">w<sub>d</sub> max / min</th></tr></thead><tbody>${rows.map(z => `<tr${tr(z)}><td><b>${z.z}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num p">${F(z.max.w, 3)}</td><td class="num s">${F(z.min.w, 3)}</td><td class="num">${F(gQ * z.max.w, 3)} / ${F(gQ * z.min.w, 3)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Wymiar / opis</th><th class="r">c<sub>pe</sub></th><th class="r">w<sub>e</sub> [kN/m²]</th><th class="r">w<sub>net,max</sub></th><th class="r">w<sub>net,min</sub></th><th class="r">w<sub>d</sub> max / min</th></tr></thead><tbody>${rows.map(z => z.head ? `<tr class="hd"><td colspan="7">${z.head}</td></tr>` : `<tr${tr(z)}><td><b>${zLabel(z.z)}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num">${z.we.map(x => F(x, 3)).join(' / ')}</td><td class="num ${z.max.w >= 0 ? 'p' : 's'}">${F(z.max.w, 3)}</td><td class="num ${z.min.w >= 0 ? 'p' : 's'}">${F(z.min.w, 3)}</td><td class="num">${F(gQ * z.max.w, 2)} / ${F(gQ * z.min.w, 2)}</td></tr>`).join('')}</tbody></table></div>` + noteHTML('w<sub>net</sub> = c<sub>s</sub>c<sub>d</sub>·q<sub>p</sub>·c<sub>pe</sub> − q<sub>p</sub>·c<sub>pi</sub> dla wszystkich kombinacji c<sub>pe</sub> i c<sub>pi</sub>; dodatnie – parcie, ujemne – ssanie. w<sub>d</sub> = γ<sub>Q</sub>·w<sub>net</sub>, γ<sub>Q</sub> = ' + F(gQ, 2) + '.');
+}
+function windProfile(D) {
+  if (!D || !D.profile || D.profile.length < 2) return '';
+  return `<div class="lsub">Ściana nawietrzna D – pasy wg rys. 7.4</div><div class="tw"><table class="t"><thead><tr><th>Pas [m]</th><th class="r">z<sub>e</sub> [m]</th><th class="r">q<sub>p</sub></th><th class="r">w<sub>e,D</sub></th></tr></thead><tbody>${D.profile.map(p => `<tr><td>${F(p.z0, 2)} – ${F(p.z1, 2)}</td><td class="num">${F(p.ze, 2)}</td><td class="num">${F(p.qp, 3)}</td><td class="num p">${F(p.wD, 3)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+/* schemat + karta strefy (panel boczny i okno powiększenia) */
+function windInteractive(c, r, big) {
+  const D = windDir(c, r);
+  const sel = windSelKey(c, r, D);
+  const dg = windDiagram(c, r, D, sel);
+  if (!dg) return '';
+  let h = `<div class="wtools">${windDirSeg(c, r, D)}<span class="hint" style="margin:0">kliknij strefę – ciśnienia poniżej</span>${big ? '' : `<button type="button" class="btn sm" data-wzoom="${c.id}" title="Otwórz schemat w dużym oknie">⛶ Powiększ</button>`}</div>`;
+  h += `<div class="wdiag${big ? ' big' : ''}">${dg}</div>`;
+  h += windZoneInfo(c, r, D, sel);
+  return h;
+}
+function windModalHTML(c) {
+  const r = R.wind[c.id]; if (!r) return '';
+  return `<div class="wmodal" data-wmodal="${c.id}"><div class="mhead"><h3><span class="chip W">${symOf('wind', c.id)}</span> ${esc(c.name)}</h3><button type="button" class="btn" data-act="mclose">Zamknij</button></div>${windInteractive(c, r, true)}</div>`;
+}
 function resWind(c, rep) {
   const r = R.wind[c.id]; if (!r) return '';
-  let dg = '';
-  if (r.diag) {
-    if (r.diag.shape === 'walls') dg = SVG.walls(r.diag);
-    else if (['flat', 'duo', 'mono'].includes(r.diag.shape)) dg = SVG.roofPlan(r.diag, r.diag.shape);
-    else if (r.diag.shape === 'fwall') dg = SVG.fwall(r.diag);
-  } else if (c.type === 'canopy1' || c.type === 'canopy2') dg = SVG.canopy(c.type === 'canopy2', num(c.a, 0));
-  let h = dg ? `<div class="diag">${dg}</div>` : '';
-  h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + (isNum(r.ze) ? kv('z<sub>e</sub>', r.ze, 'm', '', 2) : '') + (isNum(r.e) ? kv('e', r.e, 'm', '', 2) : '');
+  let h = '';
+  if (r.dirs && BLD_W.includes(c.type)) {
+    if (rep) {
+      h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + kv('z<sub>e</sub>', r.ze, 'm', '', 2) + kv('L × B × h', F(r.L, 2) + ' × ' + F(r.B, 2) + ' × ' + F(r.h, 2), 'm') + (r.cpi ? kv('c<sub>pi</sub>', r.cpi.vals.map(v => Fs(v, 2)).join(' / '), '') : '') + '</div>' + warnHTML(r.warn);
+      r.dirs.forEach(D => {
+        h += `<div class="lsub">${D.head} – b = ${F(D.b, 2)} m, d = ${F(D.d, 2)} m, e = ${F(D.e, 2)} m</div>`;
+        h += `<div class="wdiag rep">${SVG.wind.bld(c.id, c.type, r, D, '')}</div>`;
+        h += windTable(c, r, D.rows, '', false) + windProfile(D);
+        if (isNum(D.Fnet)) h += noteHTML('Siła wypadkowa D + E (brak korelacji, f = ' + F(D.fcor, 3) + '): ' + F(D.Fnet, 3) + ' kN/m² rzutu ściany.');
+      });
+      return h + noteHTML(r.note) + stepsHTML(r.steps);
+    }
+    const D = windDir(c, r);
+    const sel = windSelKey(c, r, D);
+    h += windInteractive(c, r);
+    h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + kv('z<sub>e</sub>', r.ze, 'm', '', 2) + kv('b × d (' + thLbl(D.th) + ')', F(D.b, 2) + ' × ' + F(D.d, 2), 'm') + kv('e = min(b; 2h)', D.e, 'm', '', 2) + (r.cpi ? kv('c<sub>pi</sub>', r.cpi.vals.map(v => Fs(v, 2)).join(' / '), '') : '') + (isNum(D.Fnet) ? kv('D + E wypadkowe (f<sub>kor</sub> = ' + F(D.fcor, 2) + ')', D.Fnet, 'kN/m²', '', 3) : '') + '</div>' + warnHTML(r.warn);
+    h += `<div class="lsub">Strefy – ${D.head}</div>` + windTable(c, r, D.rows, sel, true) + windProfile(D);
+    return h + noteHTML(r.note) + stepsHTML(r.common.concat(D.steps));
+  }
+  const inter = c.type === 'canopy1' || c.type === 'canopy2' || c.type === 'fwall';
+  if (inter) h += rep ? `<div class="wdiag rep">${windDiagram(c, r, null, '')}</div>` : windInteractive(c, r);
+  h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + (isNum(r.ze) ? kv('z<sub>e</sub>', r.ze, 'm', '', 2) : '');
   if (r.cpi) h += kv('c<sub>pi</sub>', r.cpi.vals.map(v => Fs(v, 2)).join(' / '), '');
   if (r.sign) h += kv('F<sub>w</sub>', r.sign.Fw, 'kN', 'd', 2);
+  r.vals.filter(v => v.point).forEach(v => { h += kv(v.label, v.v, v.unit, 'd', 2); });
   h += '</div>' + warnHTML(r.warn);
-  if (r.zones && r.zones.length) {
-    if (r.net) h += `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Położenie</th><th class="r">c<sub>p,net</sub></th><th class="r">w<sub>k</sub> max</th><th class="r">w<sub>k</sub> min</th><th class="r">w<sub>d</sub> max/min</th></tr></thead><tbody>${r.zones.map(z => `<tr><td><b>${z.z}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num p">${F(z.max.w, 3)}</td><td class="num s">${F(z.min.w, 3)}</td><td class="num">${F(S.f.gQ * z.max.w, 3)} / ${F(S.f.gQ * z.min.w, 3)}</td></tr>`).join('')}</tbody></table></div>`;
-    else h += `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Wymiar / opis</th><th class="r">c<sub>pe</sub></th><th class="r">w<sub>e</sub> [kN/m²]</th><th class="r">w<sub>net,max</sub></th><th class="r">w<sub>net,min</sub></th></tr></thead><tbody>${r.zones.map(z => z.head ? `<tr class="hd"><td colspan="6">${z.head}</td></tr>` : `<tr><td><b>${zLabel(z.z)}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num">${z.we.map(x => F(x, 3)).join(' / ')}</td><td class="num ${z.max.w >= 0 ? 'p' : 's'}">${F(z.max.w, 3)}</td><td class="num ${z.min.w >= 0 ? 'p' : 's'}">${F(z.min.w, 3)}</td></tr>`).join('')}</tbody></table></div>` + noteHTML('w<sub>net</sub> = c<sub>s</sub>c<sub>d</sub>·q<sub>p</sub>·c<sub>pe</sub> − q<sub>p</sub>·c<sub>pi</sub> dla wszystkich kombinacji c<sub>pe</sub> i c<sub>pi</sub>; dodatnie – parcie (do powierzchni), ujemne – ssanie. Wartości obliczeniowe: × γ<sub>Q</sub> = ' + F(S.f.gQ, 2) + '.');
-  }
-  if (r.profile && r.profile.length > 1) h += `<div class="lsub">Ściana nawietrzna D – pasy wg rys. 7.4</div><div class="tw"><table class="t"><thead><tr><th>Pas [m]</th><th class="r">z<sub>e</sub> [m]</th><th class="r">q<sub>p</sub></th><th class="r">w<sub>e,D</sub></th></tr></thead><tbody>${r.profile.map(p => `<tr><td>${F(p.z0, 2)} – ${F(p.z1, 2)}</td><td class="num">${F(p.ze, 2)}</td><td class="num">${F(p.qp, 3)}</td><td class="num p">${F(p.wD, 3)}</td></tr>`).join('')}</tbody></table></div>`;
-  h += noteHTML(r.note) + stepsHTML(r.steps);
-  return h;
+  if (r.zones && r.zones.length) h += windTable(c, r, r.zones, inter && !rep ? windSelKey(c, r, null) : '', inter && !rep);
+  return h + noteHTML(r.note) + stepsHTML(r.steps);
 }
 function windSide() {
   const id = activeOf('wind', 'wind', 'site');
@@ -6815,7 +7309,7 @@ const TABS = {
    ObciążeniaEC – raport obliczeń (podgląd, druk / PDF, HTML, CSV)
    ===================================================================== */
 'use strict';
-const REP_EXTRA = `.rep .kvs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.rep .kv{border:1px solid #d9dde3;border-radius:3px;padding:3px 8px;background:#f7f8fa}.rep .kv.hl{border-color:#1d5bb8;background:#e8f0fc}.rep .kv .k{display:block;font-size:8pt;color:#5b6576}.rep .kv .v{font-weight:600;font-family:Consolas,"DejaVu Sans Mono",monospace}.rep .kv .v small{font-weight:400;color:#5b6576;margin-left:3px}.rep .msg{padding:3px 7px;margin:4px 0;font-size:9.5pt;border-left:3px solid #a35d00;background:#fdf1dc}.rep .msg.info{border-color:#5b6576;background:#eef0f3}.rep .msg.ok{border-color:#1d7f3c;background:#e6f4ea}.rep .msg.err{border-color:#c0262d;background:#fde8e8}.rep .note{color:#4a5466;font-size:9pt;margin:4px 0}.rep .lsub{font-weight:650;margin:8px 0 3px;color:#0f3f86}.rep ol.steps{margin:4px 0 8px;padding-left:20px;font-size:9.5pt}.rep ol.steps li{margin-bottom:2px;break-inside:avoid}.rep ol.steps .f{display:block}.rep ol.steps .rf{display:block;color:#5b6576;font-size:8.5pt}.rep .chip{display:inline-block;min-width:22px;padding:0 4px;border-radius:2px;color:#fff;font:600 8.5pt Consolas,monospace;text-align:center}.rep .chip.G{background:#5b6576}.rep .chip.Q{background:#1d5bb8}.rep .chip.S{background:#0f7c8c}.rep .chip.W{background:#6a46b5}.rep .chip.T{background:#b4561b}.rep .chip.X{background:#1b2230}.rep table.t td.p{color:#c0262d}.rep table.t td.s{color:#1d5bb8}.rep .diag{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}.rep .diag figure{margin:0;flex:1 1 230px;max-width:360px;border:1px solid #d9dde3;padding:4px}.rep .diag figcaption{font-size:8pt;color:#5b6576}.rep .map svg{max-height:380px}.rep svg .zf{stroke:rgba(23,33,43,.35);stroke-width:var(--sw);fill-opacity:.9}.rep svg .wj{fill:none;stroke:#1b2230;stroke-opacity:.35;stroke-width:calc(var(--sw)*.9)}.rep svg .ct circle{fill:#1b2230}.rep svg .ct text{fill:#1b2230;paint-order:stroke;stroke:#fff;stroke-width:calc(var(--sw)*2.6)}.rep svg .mk-c{fill:#c0262d;stroke:#fff;stroke-width:calc(var(--sw)*1.8)}.rep svg .mk-h{fill:#c0262d;fill-opacity:.16;stroke:#c0262d;stroke-width:var(--sw)}.rep .zS1{fill:#F2EDC9}.rep .zS1_2{fill:#DCE5C9}.rep .zS2{fill:#BFDCCF}.rep .zS2_3{fill:#9CCCC8}.rep .zS3{fill:#72B5C0}.rep .zS3_4{fill:#5F9FB1}.rep .zS4{fill:#4E86A2}.rep .zS3_5{fill:#71909B}.rep .zS5{fill:#4B5F70}.rep .zW1{fill:#EFEEDA}.rep .zW1_2{fill:#D5DCBF}.rep .zW2{fill:#A8CEE0}.rep .zW3{fill:#C9AB7B}`;
+const REP_EXTRA = `.rep .kvs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.rep .kv{border:1px solid #d9dde3;border-radius:3px;padding:3px 8px;background:#f7f8fa}.rep .kv.hl{border-color:#1d5bb8;background:#e8f0fc}.rep .kv .k{display:block;font-size:8pt;color:#5b6576}.rep .kv .v{font-weight:600;font-family:Consolas,"DejaVu Sans Mono",monospace}.rep .kv .v small{font-weight:400;color:#5b6576;margin-left:3px}.rep .msg{padding:3px 7px;margin:4px 0;font-size:9.5pt;border-left:3px solid #a35d00;background:#fdf1dc}.rep .msg.info{border-color:#5b6576;background:#eef0f3}.rep .msg.ok{border-color:#1d7f3c;background:#e6f4ea}.rep .msg.err{border-color:#c0262d;background:#fde8e8}.rep .note{color:#4a5466;font-size:9pt;margin:4px 0}.rep .lsub{font-weight:650;margin:8px 0 3px;color:#0f3f86}.rep ol.steps{margin:4px 0 8px;padding-left:20px;font-size:9.5pt}.rep ol.steps li{margin-bottom:2px;break-inside:avoid}.rep ol.steps .f{display:block}.rep ol.steps .rf{display:block;color:#5b6576;font-size:8.5pt}.rep .chip{display:inline-block;min-width:22px;padding:0 4px;border-radius:2px;color:#fff;font:600 8.5pt Consolas,monospace;text-align:center}.rep .chip.G{background:#5b6576}.rep .chip.Q{background:#1d5bb8}.rep .chip.S{background:#0f7c8c}.rep .chip.W{background:#6a46b5}.rep .chip.T{background:#b4561b}.rep .chip.X{background:#1b2230}.rep table.t td.p{color:#c0262d}.rep table.t td.s{color:#1d5bb8}.rep .diag{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}.rep .diag figure{margin:0;flex:1 1 230px;max-width:360px;border:1px solid #d9dde3;padding:4px}.rep .diag figcaption{font-size:8pt;color:#5b6576}.rep .map svg{max-height:380px}.rep svg .zf{stroke:rgba(23,33,43,.35);stroke-width:var(--sw);fill-opacity:.9}.rep svg .wj{fill:none;stroke:#1b2230;stroke-opacity:.35;stroke-width:calc(var(--sw)*.9)}.rep svg .ct circle{fill:#1b2230}.rep svg .ct text{fill:#1b2230;paint-order:stroke;stroke:#fff;stroke-width:calc(var(--sw)*2.6)}.rep svg .mk-c{fill:#c0262d;stroke:#fff;stroke-width:calc(var(--sw)*1.8)}.rep svg .mk-h{fill:#c0262d;fill-opacity:.16;stroke:#c0262d;stroke-width:var(--sw)}.rep .zS1{fill:#F2EDC9}.rep .zS1_2{fill:#DCE5C9}.rep .zS2{fill:#BFDCCF}.rep .zS2_3{fill:#9CCCC8}.rep .zS3{fill:#72B5C0}.rep .zS3_4{fill:#5F9FB1}.rep .zS4{fill:#4E86A2}.rep .zS3_5{fill:#71909B}.rep .zS5{fill:#4B5F70}.rep .wdiag{margin:4px 0 8px;max-width:640px}.rep svg.wsvg text{font:12px Arial,sans-serif;fill:#1b2230}.rep svg.wsvg .t2{fill:#5b6576}.rep svg.wsvg .sec{font-weight:700;fill:#0f3f86}.rep svg.wsvg .zl{font-weight:700;font-size:14px;paint-order:stroke;stroke:#fff;stroke-width:3px}.rep svg.wsvg .zv{font:600 11.5px Consolas,monospace;paint-order:stroke;stroke:#fff;stroke-width:3px}.rep svg .dim line,.rep svg .dim path{stroke:#7a8494;stroke-width:.9;fill:none}.rep svg.wsvg .dim text{font-size:11px;fill:#4a5466}.rep svg .bldp{fill:#eef0f3;stroke:#8a94a6}.rep svg .ridge{stroke:#4a5466;stroke-dasharray:7 4;fill:none}.rep svg .wzs{fill:#1d5bb8}.rep svg .wzp{fill:#c0262d}.rep svg .wz0{fill:#eef0f3}.rep svg .wzg rect,.rep svg .wzg path{stroke:#8a94a6;stroke-width:1}.rep svg .wzb{fill:none}.rep svg.wsvg .elab{font-size:10.5px;font-style:italic;fill:#4a5466;paint-order:stroke;stroke:#fff;stroke-width:3px}.rep .zW1{fill:#EFEEDA}.rep .zW1_2{fill:#D5DCBF}.rep .zW2{fill:#A8CEE0}.rep .zW3{fill:#C9AB7B}`;
 (function () { const s = document.createElement('style'); s.textContent = REP_EXTRA; document.head.appendChild(s); })();
 const REP_DEF = { map: true, steps: true, perm: true, imp: true, snow: true, wind: true, therm: true, groups: true, notes: true };
 function repOpts() { return Object.assign({}, REP_DEF, S.ui.rep || {}); }
@@ -7124,6 +7618,13 @@ async function fetchElev(lat, lon) {
   }, { passive: false });
 })();
 
+/* ---------- schemat wiatru: odświeżenie panelu i okna powiększenia ---------- */
+function windRefresh(id) {
+  if (S.ui.tab === 'wind') { if (S.ui.act.wind !== id) setActive('wind', id); const side = $('#p-wind .dside'); if (side) side.innerHTML = windSide(); }
+  const m = $('#modal .wmodal');
+  if (m && m.dataset.wmodal === id) { const c = itemOf('wind', id); if (c) m.outerHTML = windModalHTML(c); }
+}
+
 /* ---------- operacje na listach ---------- */
 function colOfEl(el) { const d = el.closest('details.item'); return d ? { col: d.dataset.col, id: d.dataset.id } : null; }
 function cloneItem(o) { const c = JSON.parse(JSON.stringify(o)); c.id = uid(); if (c.layers) c.layers.forEach(L => L.id = uid()); c.name = (c.name || '') + ' (kopia)'; return c; }
@@ -7192,6 +7693,12 @@ document.addEventListener('click', e => {
   }
   const lp = t.closest('[data-locpick]'); if (lp) { const e2 = LOC_RES[+lp.dataset.locpick]; if (e2) locPick(e2); return; }
   const gt = t.closest('[data-goto]'); if (gt) { const [col, id] = gt.dataset.goto.split('|'); gotoItem(col, id); return; }
+  const wz = t.closest('[data-wz]');
+  if (wz) { const [id, key] = wz.dataset.wz.split('|'); S.ui.wz = S.ui.wz || {}; S.ui.wz[id] = key; save(); windRefresh(id); return; }
+  const wd = t.closest('[data-wdir]');
+  if (wd) { const [id, th] = wd.dataset.wdir.split('|'); const c = itemOf('wind', id); if (c) { c.theta = th; changed(false); windRefresh(id); } return; }
+  const wzm = t.closest('[data-wzoom]');
+  if (wzm) { const c = itemOf('wind', wzm.dataset.wzoom); if (c) modal(windModalHTML(c), 'wide'); return; }
   const a = t.closest('[data-act]'); if (!a) return;
   const act = a.dataset.act;
   const inSummary = a.closest('summary');

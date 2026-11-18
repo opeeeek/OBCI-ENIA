@@ -140,3 +140,21 @@ test('Składowe względem połaci', () => {
   near(EC.slopeComp('perp', a, 'S', 1).n, c * c); near(EC.slopeComp('perp', a, 'S', 1).t, c * s);
   near(EC.slopeComp('proj', a, 'G', 1).n, 1 / c); near(EC.slopeComp('perp', a, 'W', 0.5).n, 0.5);
 });
+
+test('Wiatr – kierunki θ = 0°/90°(/180°): zamiana b i d, strefy i klucze', () => {
+  const ws = { zone: 1, A: 150, terrain: 'III', method: 'NA', cdir: 1, cseason: 1, cscd: 1 };
+  const w = EC.windCalc({ type: 'walls', h: 10, b: 20, d: 12, Aload: 10, cpiMode: 'std' }, ws, {});
+  assert.deepEqual(w.dirs.map(D => D.th), ['0', '90']);
+  const [D0, D90] = w.dirs;
+  near(D0.b, 20); near(D0.d, 12); near(D0.e, 20);
+  assert.deepEqual(D0.zl.map(z => z[0]), ['A', 'B']); near(D0.zl[0][1], 4); near(D0.zl[1][1], 8);
+  near(D90.b, 12); near(D90.d, 20); near(D90.e, 12);
+  assert.deepEqual(D90.zl.map(z => z[0]), ['A', 'B', 'C']); near(D90.zl[2][1], 8);
+  assert.ok(w.vals.some(v => v.key === 'D') && w.vals.some(v => v.key === 'D₉₀'));
+  near(D90.rows.find(z => z.z === 'D₉₀').cpes[0], EC.wallCpe(10, 20).D[0]);
+  const m = EC.windCalc({ type: 'mono', h: 8, b: 20, d: 10, a: 15, Aload: 10, cpiMode: 'none' }, ws, {});
+  assert.deepEqual(m.dirs.map(D => D.th), ['0', '180', '90']);
+  near(m.dirs[2].e, Math.min(10, 16));
+  const fl = EC.windCalc({ type: 'flat', h: 6, b: 30, d: 10, eaves: 'sharp', Aload: 10, cpiMode: 'none' }, ws, {});
+  near(fl.dirs[1].rows.find(z => z.z === 'F₉₀').area, 2 * (10 / 4) * (10 / 10)); // θ = 90°: b = 10, e = min(10; 12) = 10
+});

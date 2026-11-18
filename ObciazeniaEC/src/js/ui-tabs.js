@@ -355,9 +355,10 @@ function windForm(c) {
   const bld = ['walls', 'flat', 'mono', 'duo', 'hip'].includes(c.type);
   if (bld) {
     const ridge = ['mono', 'duo', 'hip'].includes(c.type);
+    h += sub('Wymiary budynku');
     h += fNum(o, 'h', c.type === 'flat' ? 'wysokość do dachu (bez attyki)' : ridge ? 'wysokość do kalenicy / wyższej krawędzi' : 'wysokość budynku', 'm', { sym: 'h' });
-    h += fNum(o, 'b', ridge ? 'długość budynku (wzdłuż kalenicy)' : 'wymiar prostopadły do wiatru', 'm', { sym: 'b' });
-    h += fNum(o, 'd', ridge ? 'szerokość budynku (w kierunku spadku)' : 'wymiar równoległy do wiatru', 'm', { sym: 'd' });
+    h += fNum(o, 'b', ridge ? (c.type === 'mono' ? 'długość budynku (wzdłuż okapów)' : 'długość budynku (wzdłuż kalenicy)') : 'długość budynku', 'm', { sym: 'L' });
+    h += fNum(o, 'd', ridge ? 'szerokość budynku (w kierunku spadku)' : 'szerokość budynku', 'm', { sym: 'B', hint: 'Kierunki wiatru przełączasz na schemacie: θ = 0° – wiatr prostopadły do L (b = L, d = B); θ = 90° – równoległy do L (b = B, d = L)' + (c.type === 'mono' ? '; θ = 180° – na wyższą krawędź' : '') + '.' });
     if (ridge) h += fNum(o, 'a', c.type === 'hip' ? 'połać główna' : 'kąt nachylenia', '°', { sym: c.type === 'hip' ? 'α<sub>0</sub>' : 'α', hint: c.type === 'duo' ? 'ujemny – dach odwrócony (motylkowy)' : '' });
     if (c.type === 'hip') h += fNum(o, 'a90', 'połać boczna', '°', { sym: 'α<sub>90</sub>' });
     if (c.type === 'flat') {
@@ -394,26 +395,102 @@ function windForm(c) {
   return h;
 }
 const zLabel = z => String(z).replace('Fup', 'F<sub>up</sub>').replace('Flow', 'F<sub>low</sub>');
+const BLD_W = ['walls', 'flat', 'mono', 'duo', 'hip'];
+const thLbl = th => 'θ = ' + th + '°';
+function windDir(c, r) { const ds = r.dirs || []; if (!ds.length) return null; return ds.find(x => x.th === String(c.theta)) || ds[0]; }
+function windRowsOf(r, D) { return D ? D.rows : (r.zones || []).filter(z => !z.head); }
+function windSelKey(c, r, D) {
+  const rows = windRowsOf(r, D);
+  if (!rows.length) return '';
+  const k = (S.ui.wz || {})[c.id] || '';
+  const hit = rows.find(x => x.z === k);
+  if (hit) return hit.z;
+  const base = String(k).replace(/[₀₉₁₈]+$/, '');
+  const byBase = base && rows.find(x => x.base === base);
+  if (byBase) return byBase.z;
+  const def = String(r.def || '').replace(/[₀₉₁₈]+$/, '');
+  return (rows.find(x => x.base === def) || rows[0]).z;
+}
+function windDiagram(c, r, D, sel) {
+  if (D && BLD_W.includes(c.type)) return SVG.wind.bld(c.id, c.type, r, D, sel);
+  if (c.type === 'canopy1' || c.type === 'canopy2') return SVG.wind.canopy(c.id, r, r.zones, sel, c.type === 'canopy2');
+  if (c.type === 'fwall') return SVG.wind.fwall(c.id, r, c, sel);
+  return '';
+}
+function windDirSeg(c, r, D) {
+  if (!r.dirs || r.dirs.length < 2) return '';
+  return `<div class="seg wdirs" role="tablist" aria-label="Kierunek wiatru">${r.dirs.map(x => `<button type="button" data-wdir="${c.id}|${x.th}" class="${x === D ? 'on' : ''}" title="${esc(strip(x.head))}">${thLbl(x.th)}</button>`).join('')}</div>`;
+}
+function windZoneInfo(c, r, D, key) {
+  const rows = windRowsOf(r, D);
+  const z = rows.find(x => x.z === key);
+  if (!z) return '<div class="wzinfo"><div class="note">Kliknij strefę na schemacie lub w tabeli, aby zobaczyć ciśnienia.</div></div>';
+  const gQ = S.f.gQ * (S.f.useKFI ? (EC.KFI[S.f.rc] || 1) : 1);
+  const v = SVG.wind.govVal(z);
+  let h = `<div class="wzinfo"><div class="wzh"><span class="zb ${v < 0 ? 's' : 'p'}">${zLabel(z.base || z.z)}</span><b>Strefa ${zLabel(z.z)}</b>${D ? `<span>${esc(strip(D.head))}</span>` : ''}<span class="hint" style="margin:0">${z.dim || ''}</span></div>`;
+  h += '<div class="kvs">' + kv('w<sub>net,max</sub> (charakt.)', z.max.w, 'kN/m²', z.max.w >= 0 ? 'hl' : '', 3) + kv('w<sub>net,min</sub> (charakt.)', z.min.w, 'kN/m²', z.min.w < 0 ? 'hl' : '', 3) + kv('w<sub>d,max</sub> = γ<sub>Q</sub>·w', gQ * z.max.w, 'kN/m²', 'd', 3) + kv('w<sub>d,min</sub> = γ<sub>Q</sub>·w', gQ * z.min.w, 'kN/m²', 'd', 3) + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', '', 3) + (isNum(z.area) && z.area > 0 ? kv('pole strefy', z.area, 'm²', '', 2) : '') + '</div>';
+  if (z.cand && z.cand.length) {
+    const cellTxt = k => { const cl = z.cells && z.cells[k]; return cl ? `${Fs(cl[0], 2)} / ${Fs(cl[1], 2)}` : ''; };
+    h += `<div class="tw"><table class="t"><thead><tr><th>c<sub>pe,10</sub> / c<sub>pe,1</sub> → c<sub>pe</sub></th><th class="r">c<sub>pi</sub></th><th class="r">w<sub>e</sub></th><th class="r">w<sub>i</sub></th><th class="r">w<sub>net</sub></th><th class="r">w<sub>d</sub></th></tr></thead><tbody>${z.cand.map(x => `<tr${x === z.max || x === z.min ? ' class="gov"' : ''}><td>${cellTxt(x.k)} → <b>${Fs(x.cpe, 3)}</b></td><td class="num">${Fs(x.cpi, 2)}</td><td class="num">${F(x.we, 3)}</td><td class="num">${F(x.wi, 3)}</td><td class="num ${x.w >= 0 ? 'p' : 's'}">${F(x.w, 3)}</td><td class="num">${F(gQ * x.w, 3)}</td></tr>`).join('')}</tbody></table></div>`;
+    h += `<div class="note">c<sub>pe</sub> dla pola A = ${F(r.Aload, 1)} m²; w<sub>e</sub> = c<sub>s</sub>c<sub>d</sub>·q<sub>p</sub>·c<sub>pe</sub>, w<sub>i</sub> = q<sub>p</sub>·c<sub>pi</sub>, w<sub>net</sub> = w<sub>e</sub> − w<sub>i</sub>, w<sub>d</sub> = γ<sub>Q</sub>·w<sub>net</sub> [kN/m²]. Wiersze wyróżnione – wartości skrajne; dodatnie – parcie na powierzchnię, ujemne – ssanie.</div>`;
+  } else if (r.net) h += `<div class="note">c<sub>p,net</sub> = ${z.cpes.map(x => Fs(x, 2)).join(' / ')} – współczynnik wypadkowy (obie strony elementu); w = c<sub>s</sub>c<sub>d</sub>·${c.type === 'fwall' ? 'ψ<sub>s</sub>·' : ''}c<sub>p,net</sub>·q<sub>p</sub>.</div>`;
+  return h + '</div>';
+}
+function windTable(c, r, rows, sel, clickable) {
+  const gQ = S.f.gQ * (S.f.useKFI ? (EC.KFI[S.f.rc] || 1) : 1);
+  const tr = z => clickable ? ` data-wz="${c.id}|${esc(z.z)}"${z.z === sel ? ' class="sel"' : ''}` : '';
+  if (r.net) return `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Położenie</th><th class="r">c<sub>p,net</sub></th><th class="r">w<sub>k</sub> max</th><th class="r">w<sub>k</sub> min</th><th class="r">w<sub>d</sub> max / min</th></tr></thead><tbody>${rows.map(z => `<tr${tr(z)}><td><b>${z.z}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num p">${F(z.max.w, 3)}</td><td class="num s">${F(z.min.w, 3)}</td><td class="num">${F(gQ * z.max.w, 3)} / ${F(gQ * z.min.w, 3)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Wymiar / opis</th><th class="r">c<sub>pe</sub></th><th class="r">w<sub>e</sub> [kN/m²]</th><th class="r">w<sub>net,max</sub></th><th class="r">w<sub>net,min</sub></th><th class="r">w<sub>d</sub> max / min</th></tr></thead><tbody>${rows.map(z => z.head ? `<tr class="hd"><td colspan="7">${z.head}</td></tr>` : `<tr${tr(z)}><td><b>${zLabel(z.z)}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num">${z.we.map(x => F(x, 3)).join(' / ')}</td><td class="num ${z.max.w >= 0 ? 'p' : 's'}">${F(z.max.w, 3)}</td><td class="num ${z.min.w >= 0 ? 'p' : 's'}">${F(z.min.w, 3)}</td><td class="num">${F(gQ * z.max.w, 2)} / ${F(gQ * z.min.w, 2)}</td></tr>`).join('')}</tbody></table></div>` + noteHTML('w<sub>net</sub> = c<sub>s</sub>c<sub>d</sub>·q<sub>p</sub>·c<sub>pe</sub> − q<sub>p</sub>·c<sub>pi</sub> dla wszystkich kombinacji c<sub>pe</sub> i c<sub>pi</sub>; dodatnie – parcie, ujemne – ssanie. w<sub>d</sub> = γ<sub>Q</sub>·w<sub>net</sub>, γ<sub>Q</sub> = ' + F(gQ, 2) + '.');
+}
+function windProfile(D) {
+  if (!D || !D.profile || D.profile.length < 2) return '';
+  return `<div class="lsub">Ściana nawietrzna D – pasy wg rys. 7.4</div><div class="tw"><table class="t"><thead><tr><th>Pas [m]</th><th class="r">z<sub>e</sub> [m]</th><th class="r">q<sub>p</sub></th><th class="r">w<sub>e,D</sub></th></tr></thead><tbody>${D.profile.map(p => `<tr><td>${F(p.z0, 2)} – ${F(p.z1, 2)}</td><td class="num">${F(p.ze, 2)}</td><td class="num">${F(p.qp, 3)}</td><td class="num p">${F(p.wD, 3)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+/* schemat + karta strefy (panel boczny i okno powiększenia) */
+function windInteractive(c, r, big) {
+  const D = windDir(c, r);
+  const sel = windSelKey(c, r, D);
+  const dg = windDiagram(c, r, D, sel);
+  if (!dg) return '';
+  let h = `<div class="wtools">${windDirSeg(c, r, D)}<span class="hint" style="margin:0">kliknij strefę – ciśnienia poniżej</span>${big ? '' : `<button type="button" class="btn sm" data-wzoom="${c.id}" title="Otwórz schemat w dużym oknie">⛶ Powiększ</button>`}</div>`;
+  h += `<div class="wdiag${big ? ' big' : ''}">${dg}</div>`;
+  h += windZoneInfo(c, r, D, sel);
+  return h;
+}
+function windModalHTML(c) {
+  const r = R.wind[c.id]; if (!r) return '';
+  return `<div class="wmodal" data-wmodal="${c.id}"><div class="mhead"><h3><span class="chip W">${symOf('wind', c.id)}</span> ${esc(c.name)}</h3><button type="button" class="btn" data-act="mclose">Zamknij</button></div>${windInteractive(c, r, true)}</div>`;
+}
 function resWind(c, rep) {
   const r = R.wind[c.id]; if (!r) return '';
-  let dg = '';
-  if (r.diag) {
-    if (r.diag.shape === 'walls') dg = SVG.walls(r.diag);
-    else if (['flat', 'duo', 'mono'].includes(r.diag.shape)) dg = SVG.roofPlan(r.diag, r.diag.shape);
-    else if (r.diag.shape === 'fwall') dg = SVG.fwall(r.diag);
-  } else if (c.type === 'canopy1' || c.type === 'canopy2') dg = SVG.canopy(c.type === 'canopy2', num(c.a, 0));
-  let h = dg ? `<div class="diag">${dg}</div>` : '';
-  h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + (isNum(r.ze) ? kv('z<sub>e</sub>', r.ze, 'm', '', 2) : '') + (isNum(r.e) ? kv('e', r.e, 'm', '', 2) : '');
+  let h = '';
+  if (r.dirs && BLD_W.includes(c.type)) {
+    if (rep) {
+      h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + kv('z<sub>e</sub>', r.ze, 'm', '', 2) + kv('L × B × h', F(r.L, 2) + ' × ' + F(r.B, 2) + ' × ' + F(r.h, 2), 'm') + (r.cpi ? kv('c<sub>pi</sub>', r.cpi.vals.map(v => Fs(v, 2)).join(' / '), '') : '') + '</div>' + warnHTML(r.warn);
+      r.dirs.forEach(D => {
+        h += `<div class="lsub">${D.head} – b = ${F(D.b, 2)} m, d = ${F(D.d, 2)} m, e = ${F(D.e, 2)} m</div>`;
+        h += `<div class="wdiag rep">${SVG.wind.bld(c.id, c.type, r, D, '')}</div>`;
+        h += windTable(c, r, D.rows, '', false) + windProfile(D);
+        if (isNum(D.Fnet)) h += noteHTML('Siła wypadkowa D + E (brak korelacji, f = ' + F(D.fcor, 3) + '): ' + F(D.Fnet, 3) + ' kN/m² rzutu ściany.');
+      });
+      return h + noteHTML(r.note) + stepsHTML(r.steps);
+    }
+    const D = windDir(c, r);
+    const sel = windSelKey(c, r, D);
+    h += windInteractive(c, r);
+    h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + kv('z<sub>e</sub>', r.ze, 'm', '', 2) + kv('b × d (' + thLbl(D.th) + ')', F(D.b, 2) + ' × ' + F(D.d, 2), 'm') + kv('e = min(b; 2h)', D.e, 'm', '', 2) + (r.cpi ? kv('c<sub>pi</sub>', r.cpi.vals.map(v => Fs(v, 2)).join(' / '), '') : '') + (isNum(D.Fnet) ? kv('D + E wypadkowe (f<sub>kor</sub> = ' + F(D.fcor, 2) + ')', D.Fnet, 'kN/m²', '', 3) : '') + '</div>' + warnHTML(r.warn);
+    h += `<div class="lsub">Strefy – ${D.head}</div>` + windTable(c, r, D.rows, sel, true) + windProfile(D);
+    return h + noteHTML(r.note) + stepsHTML(r.common.concat(D.steps));
+  }
+  const inter = c.type === 'canopy1' || c.type === 'canopy2' || c.type === 'fwall';
+  if (inter) h += rep ? `<div class="wdiag rep">${windDiagram(c, r, null, '')}</div>` : windInteractive(c, r);
+  h += '<div class="kvs">' + kv('q<sub>p</sub>(z<sub>e</sub>)', r.qp, 'kN/m²', 'hl', 3) + (isNum(r.ze) ? kv('z<sub>e</sub>', r.ze, 'm', '', 2) : '');
   if (r.cpi) h += kv('c<sub>pi</sub>', r.cpi.vals.map(v => Fs(v, 2)).join(' / '), '');
   if (r.sign) h += kv('F<sub>w</sub>', r.sign.Fw, 'kN', 'd', 2);
+  r.vals.filter(v => v.point).forEach(v => { h += kv(v.label, v.v, v.unit, 'd', 2); });
   h += '</div>' + warnHTML(r.warn);
-  if (r.zones && r.zones.length) {
-    if (r.net) h += `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Położenie</th><th class="r">c<sub>p,net</sub></th><th class="r">w<sub>k</sub> max</th><th class="r">w<sub>k</sub> min</th><th class="r">w<sub>d</sub> max/min</th></tr></thead><tbody>${r.zones.map(z => `<tr><td><b>${z.z}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num p">${F(z.max.w, 3)}</td><td class="num s">${F(z.min.w, 3)}</td><td class="num">${F(S.f.gQ * z.max.w, 3)} / ${F(S.f.gQ * z.min.w, 3)}</td></tr>`).join('')}</tbody></table></div>`;
-    else h += `<div class="tw"><table class="t"><thead><tr><th>Strefa</th><th>Wymiar / opis</th><th class="r">c<sub>pe</sub></th><th class="r">w<sub>e</sub> [kN/m²]</th><th class="r">w<sub>net,max</sub></th><th class="r">w<sub>net,min</sub></th></tr></thead><tbody>${r.zones.map(z => z.head ? `<tr class="hd"><td colspan="6">${z.head}</td></tr>` : `<tr><td><b>${zLabel(z.z)}</b></td><td>${z.dim || ''}</td><td class="num">${z.cpes.map(x => Fs(x, 2)).join(' / ')}</td><td class="num">${z.we.map(x => F(x, 3)).join(' / ')}</td><td class="num ${z.max.w >= 0 ? 'p' : 's'}">${F(z.max.w, 3)}</td><td class="num ${z.min.w >= 0 ? 'p' : 's'}">${F(z.min.w, 3)}</td></tr>`).join('')}</tbody></table></div>` + noteHTML('w<sub>net</sub> = c<sub>s</sub>c<sub>d</sub>·q<sub>p</sub>·c<sub>pe</sub> − q<sub>p</sub>·c<sub>pi</sub> dla wszystkich kombinacji c<sub>pe</sub> i c<sub>pi</sub>; dodatnie – parcie (do powierzchni), ujemne – ssanie. Wartości obliczeniowe: × γ<sub>Q</sub> = ' + F(S.f.gQ, 2) + '.');
-  }
-  if (r.profile && r.profile.length > 1) h += `<div class="lsub">Ściana nawietrzna D – pasy wg rys. 7.4</div><div class="tw"><table class="t"><thead><tr><th>Pas [m]</th><th class="r">z<sub>e</sub> [m]</th><th class="r">q<sub>p</sub></th><th class="r">w<sub>e,D</sub></th></tr></thead><tbody>${r.profile.map(p => `<tr><td>${F(p.z0, 2)} – ${F(p.z1, 2)}</td><td class="num">${F(p.ze, 2)}</td><td class="num">${F(p.qp, 3)}</td><td class="num p">${F(p.wD, 3)}</td></tr>`).join('')}</tbody></table></div>`;
-  h += noteHTML(r.note) + stepsHTML(r.steps);
-  return h;
+  if (r.zones && r.zones.length) h += windTable(c, r, r.zones, inter && !rep ? windSelKey(c, r, null) : '', inter && !rep);
+  return h + noteHTML(r.note) + stepsHTML(r.steps);
 }
 function windSide() {
   const id = activeOf('wind', 'wind', 'site');

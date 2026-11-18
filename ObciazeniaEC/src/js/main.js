@@ -224,6 +224,13 @@ async function fetchElev(lat, lon) {
   }, { passive: false });
 })();
 
+/* ---------- schemat wiatru: odświeżenie panelu i okna powiększenia ---------- */
+function windRefresh(id) {
+  if (S.ui.tab === 'wind') { if (S.ui.act.wind !== id) setActive('wind', id); const side = $('#p-wind .dside'); if (side) side.innerHTML = windSide(); }
+  const m = $('#modal .wmodal');
+  if (m && m.dataset.wmodal === id) { const c = itemOf('wind', id); if (c) m.outerHTML = windModalHTML(c); }
+}
+
 /* ---------- operacje na listach ---------- */
 function colOfEl(el) { const d = el.closest('details.item'); return d ? { col: d.dataset.col, id: d.dataset.id } : null; }
 function cloneItem(o) { const c = JSON.parse(JSON.stringify(o)); c.id = uid(); if (c.layers) c.layers.forEach(L => L.id = uid()); c.name = (c.name || '') + ' (kopia)'; return c; }
@@ -292,6 +299,12 @@ document.addEventListener('click', e => {
   }
   const lp = t.closest('[data-locpick]'); if (lp) { const e2 = LOC_RES[+lp.dataset.locpick]; if (e2) locPick(e2); return; }
   const gt = t.closest('[data-goto]'); if (gt) { const [col, id] = gt.dataset.goto.split('|'); gotoItem(col, id); return; }
+  const wz = t.closest('[data-wz]');
+  if (wz) { const [id, key] = wz.dataset.wz.split('|'); S.ui.wz = S.ui.wz || {}; S.ui.wz[id] = key; save(); windRefresh(id); return; }
+  const wd = t.closest('[data-wdir]');
+  if (wd) { const [id, th] = wd.dataset.wdir.split('|'); const c = itemOf('wind', id); if (c) { c.theta = th; changed(false); windRefresh(id); } return; }
+  const wzm = t.closest('[data-wzoom]');
+  if (wzm) { const c = itemOf('wind', wzm.dataset.wzoom); if (c) modal(windModalHTML(c), 'wide'); return; }
   const a = t.closest('[data-act]'); if (!a) return;
   const act = a.dataset.act;
   const inSummary = a.closest('summary');

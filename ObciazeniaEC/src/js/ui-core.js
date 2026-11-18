@@ -269,7 +269,7 @@ function normPopup(key, anchor) {
   const n = NORM[key]; if (!n) return;
   showPop(`<div class="nh"><h5>${n.t}</h5><div>${n.s}</div>${n.f ? `<div class="nf">${n.f}</div>` : ''}${n.h ? `<div class="nhh">${n.h}</div>` : ''}<div class="src">Streszczenie własne – nie zastępuje tekstu normy.</div></div>`, anchor);
 }
-function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="dlg">${html}</div>`; m.classList.add('on'); }
+function modal(html, cls) { const m = $('#modal'); m.innerHTML = `<div class="dlg ${cls || ''}">${html}</div>`; m.classList.add('on'); }
 function closeModal() { $('#modal').classList.remove('on'); $('#modal').innerHTML = ''; }
 function confirmDlg(title, text, okLabel, onOk) {
   modal(`<h3>${title}</h3><div>${text}</div><div class="dact"><button class="btn" data-act="mclose">Anuluj</button><button class="btn pri" id="mok">${okLabel || 'OK'}</button></div>`);

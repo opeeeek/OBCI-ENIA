@@ -757,17 +757,17 @@ function cpiSet(c, wc) {
   }
   return { vals: [0.2, -0.3], txt: '', ref: '', key: '' };
 }
-function zoneResults(zones, qp, cpi, cscd, r) {
+function zoneResults(zones, qp, cpi, cscd, r, Dd) {
   const rows = [];
   zones.forEach(Z => {
     const cand = [];
-    ['n', 'p'].forEach(k => { if (Z[k] !== null && Z[k] !== undefined) cpi.vals.forEach(ci => cand.push({ cpe: Z[k], cpi: ci, w: cscd * qp * Z[k] - qp * ci })); });
+    ['n', 'p'].forEach(k => { if (Z[k] !== null && Z[k] !== undefined) cpi.vals.forEach(ci => cand.push({ k, cpe: Z[k], cpi: ci, we: cscd * qp * Z[k], wi: qp * ci, w: cscd * qp * Z[k] - qp * ci })); });
     if (!cand.length) return;
     let mx = cand[0], mn = cand[0];
     cand.forEach(x => { if (x.w > mx.w) mx = x; if (x.w < mn.w) mn = x; });
     const cpes = [Z.n, Z.p].filter(x => x !== null && x !== undefined);
-    rows.push({ z: Z.z, cpes, we: cpes.map(x => cscd * qp * x), max: mx, min: mn, dim: Z.dim || '' });
-    r.vals.push({ key: Z.z, label: 'strefa ' + Z.z, v: mx.w, vmin: mn.w, unit: 'kN/m²', wind: true });
+    rows.push({ z: Z.z, base: Z.base || Z.z, cpes, we: cpes.map(x => cscd * qp * x), max: mx, min: mn, dim: Z.dim || '', cells: Z.cells || null, area: Z.area, cand, th: Dd ? Dd.th : null, len: Z.len });
+    r.vals.push({ key: Z.z, label: 'strefa ' + Z.z + (Dd && Dd.th === '0' && !/[₀₉₁₈]/.test(Z.z) ? ' (θ = 0°)' : ''), v: mx.w, vmin: mn.w, unit: 'kN/m²', wind: true });
   });
   return rows;
 }
@@ -781,118 +781,156 @@ function windCalc(c, ws, fIn) {
   const zOver = isNum(c.zeMan) && c.zeUse ? c.zeMan : null;
   const building = ['walls', 'flat', 'mono', 'duo', 'hip'].includes(c.type);
   if (building) {
-    const h = num(c.h, 0), b = num(c.b, 1), d = num(c.d, 1);
+    /* wymiary budynku: L – długość (wzdłuż kalenicy / osi x), B – szerokość, h – wysokość
+       θ = 0°: wiatr prostopadły do L (b = L, d = B); θ = 90°: wiatr równoległy do L (b = B, d = L) */
+    const h = num(c.h, 0), L = Math.max(num(c.b, 1), 0.01), B = Math.max(num(c.d, 1), 0.01);
     const ze = zOver !== null ? zOver : h;
     const q = qpAt(ze, ws, wb);
-    r.qp = q.qp; r.ze = ze;
+    r.qp = q.qp; r.ze = ze; r.h = h; r.L = L; r.B = B; r.Aload = A;
     r.steps.push(['z<sub>e</sub> = ' + (zOver !== null ? F(ze, 2) + ' m (podano)' : 'h = ' + F(h, 2) + ' m') + ': ' + q.txt, q.ref, q.key]);
-    if (q.zz < ze && ws.method !== 'EN' && ws.method !== 'man') { /* zmax */ }
-    const wc = wallCpe(h, d);
-    const cpi = cpiSet(c, wc);
+    const wc0 = wallCpe(h, B);
+    const cpi = cpiSet(c, wc0);
     r.cpi = cpi;
     r.steps.push([cpi.txt, cpi.ref, cpi.key]);
     if (cpi.vals.some(v => v !== 0)) r.steps.push(['w<sub>i</sub> = q<sub>p</sub>(z<sub>i</sub>)·c<sub>pi</sub>, z<sub>i</sub> = z<sub>e</sub> → ' + cpi.vals.map(v => F(q.qp * v, 3)).join(' / ') + ' kN/m²', 'PN-EN 1991-1-4, (5.2)', '1-4:5.2']);
     r.steps.push([Atxt, 'PN-EN 1991-1-4, 7.2.1, rys. 7.2', '1-4:7.2.1']);
     if (cscd !== 1) r.steps.push(['c<sub>s</sub>c<sub>d</sub> = ' + F(cscd, 2) + ' – stosowany do ciśnienia zewnętrznego', 'PN-EN 1991-1-4, 6.2', '1-4:6.2']);
-    const e = Math.min(b, 2 * h);
-    r.e = e;
+    r.steps.push(['budynek L × B × h = ' + F(L, 2) + ' × ' + F(B, 2) + ' × ' + F(h, 2) + ' m; θ = 0°: wiatr prostopadły do L (b = L, d = B), θ = 90°: wiatr równoległy do L (b = B, d = L)' + (c.type === 'mono' ? ', θ = 180°: jak 0°, wiatr na wyższą krawędź' : ''), 'PN-EN 1991-1-4, 7.2.1, rys. 7.4–7.9', '1-4:7.2.2']);
+    const nCommon = r.steps.length;
+    const dirs = [];
+    const mk = (th, b, d, head) => ({ th, b, d, e: Math.min(b, 2 * h), head, steps: [], zones: [] });
+    const Z = (z, base, n, p, dim, area, extra) => Object.assign({ z, base, n: n ? cpeA(n, A) : null, p: p ? cpeA(p, A) : null, cells: { n, p }, dim, area }, extra || {});
     if (c.type === 'walls') {
-      r.steps.push(['e = min(b; 2h) = min(' + F(b, 2) + '; ' + F(2 * h, 2) + ') = ' + F(e, 2) + ' m; h/d = ' + F(h, 2) + '/' + F(d, 2) + ' = ' + F(wc.hd, 3), 'PN-EN 1991-1-4, rys. 7.5', '1-4:7.2.2']);
-      let zl;
-      if (e < d) zl = [['A', e / 5], ['B', 4 * e / 5], ['C', d - e]];
-      else if (e < 5 * d) zl = [['A', e / 5], ['B', d - e / 5]];
-      else zl = [['A', d]];
-      r.zoneLen = zl;
-      r.steps.push(['c<sub>pe,10</sub> (h/d = ' + F(wc.hd, 2) + '): A ' + Fs(wc.A[0], 2) + ', B ' + Fs(wc.B[0], 2) + ', C ' + Fs(wc.C[0], 2) + ', D ' + Fs(wc.D[0], 2) + ', E ' + Fs(wc.E[0], 2) + (wc.hd > 0.25 && wc.hd < 5 && wc.hd !== 1 ? ' (interpolacja liniowa)' : ''), 'PN-EN 1991-1-4, tabl. 7.1', '1-4:7.2.2']);
-      const zones = zl.map(([z, L]) => ({ z, n: cpeA(wc[z], A), p: null, dim: 'pas ' + F(L, 2) + ' m' }));
-      zones.push({ z: 'D', n: null, p: cpeA(wc.D, A), dim: 'ściana nawietrzna' });
-      zones.push({ z: 'E', n: cpeA(wc.E, A), p: null, dim: 'ściana zawietrzna' });
-      r.zones = zoneResults(zones, q.qp, cpi, cscd, r);
-      const prof = [];
-      if (h <= b) prof.push([0, h, h]);
-      else if (h <= 2 * b) { prof.push([0, b, b]); prof.push([b, h, h]); }
-      else {
-        prof.push([0, b, b]);
-        const n = Math.max(1, Math.ceil((h - 2 * b) / b)), hs = (h - 2 * b) / n;
-        for (let i = 0; i < n; i++) prof.push([b + i * hs, b + (i + 1) * hs, b + (i + 1) * hs]);
-        prof.push([h - b, h, h]);
-      }
-      r.profile = prof.map(([z0, z1, z]) => { const qq = qpAt(z, ws, wb); return { z0, z1, ze: z, qp: qq.qp, wD: cscd * qq.qp * cpeA(wc.D, A) }; });
-      if (prof.length > 1) r.steps.push(['h > b: profil z<sub>e</sub> na ścianie nawietrznej wg rys. 7.4 (' + prof.length + ' pasy)', 'PN-EN 1991-1-4, 7.2.2(1), rys. 7.4', '1-4:7.2.2']);
-      const hd = wc.hd;
-      const fcor = hd >= 5 ? 1 : hd <= 1 ? 0.85 : 0.85 + 0.15 * (hd - 1) / 4;
-      r.fcor = fcor;
-      const Fnet = (cpeA(wc.D, 10) - cpeA(wc.E, 10)) * q.qp * cscd * fcor;
-      r.steps.push(['brak pełnej korelacji parcia D i ssania E: siła wypadkowa na budynek × ' + F(fcor, 3) + ' → (c<sub>pe,D</sub> − c<sub>pe,E</sub>)·q<sub>p</sub>·c<sub>s</sub>c<sub>d</sub>·' + F(fcor, 3) + ' = ' + F(Fnet, 3) + ' kN/m² rzutu ściany', 'PN-EN 1991-1-4, 7.2.2(3)', '1-4:7.2.2']);
-      r.vals.push({ key: 'DEnet', label: 'D + E – wypadkowe (z f<sub>kor</sub>)', v: Fnet, unit: 'kN/m²', wind: true, vmin: Fnet });
-      r.diag = { shape: 'walls', b, d, zl, e };
+      [['0', L, B, 'θ = 0° – wiatr prostopadły do ściany L'], ['90', B, L, 'θ = 90° – wiatr prostopadły do ściany B']].forEach(([th, b, d, head]) => {
+        const Dd = mk(th, b, d, head), e = Dd.e, sfx = th === '0' ? '' : '₉₀';
+        const wc = wallCpe(h, d);
+        let zl;
+        if (e < d) zl = [['A', e / 5], ['B', 4 * e / 5], ['C', d - e]];
+        else if (e < 5 * d) zl = [['A', e / 5], ['B', d - e / 5]];
+        else zl = [['A', d]];
+        Dd.zl = zl; Dd.hd = wc.hd;
+        Dd.steps.push([head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = min(' + F(b, 2) + '; ' + F(2 * h, 2) + ') = ' + F(e, 2) + ' m; h/d = ' + F(wc.hd, 3) + '; strefy ścian bocznych: ' + zl.map(([z, l]) => z + ' = ' + F(l, 2) + ' m').join(', '), 'PN-EN 1991-1-4, rys. 7.5', '1-4:7.2.2']);
+        Dd.steps.push(['c<sub>pe,10</sub> (h/d = ' + F(wc.hd, 2) + '): A ' + Fs(wc.A[0], 2) + ', B ' + Fs(wc.B[0], 2) + ', C ' + Fs(wc.C[0], 2) + ', D ' + Fs(wc.D[0], 2) + ', E ' + Fs(wc.E[0], 2) + (wc.hd > 0.25 && wc.hd < 5 && wc.hd !== 1 ? ' (interpolacja liniowa)' : ''), 'PN-EN 1991-1-4, tabl. 7.1', '1-4:7.2.2']);
+        zl.forEach(([z, l]) => Dd.zones.push(Z(z + sfx, z, wc[z], null, 'ściany boczne, pas ' + F(l, 2) + ' m × h = ' + F(h, 2) + ' m', l * h, { len: l })));
+        Dd.zones.push(Z('D' + sfx, 'D', null, wc.D, 'ściana nawietrzna ' + F(b, 2) + ' × ' + F(h, 2) + ' m', b * h));
+        Dd.zones.push(Z('E' + sfx, 'E', wc.E, null, 'ściana zawietrzna ' + F(b, 2) + ' × ' + F(h, 2) + ' m', b * h));
+        const prof = [];
+        if (h <= b) prof.push([0, h, h]);
+        else if (h <= 2 * b) { prof.push([0, b, b]); prof.push([b, h, h]); }
+        else {
+          prof.push([0, b, b]);
+          const n = Math.max(1, Math.ceil((h - 2 * b) / b)), hs = (h - 2 * b) / n;
+          for (let i = 0; i < n; i++) prof.push([b + i * hs, b + (i + 1) * hs, b + (i + 1) * hs]);
+          prof.push([h - b, h, h]);
+        }
+        Dd.profile = prof.map(([z0, z1, z]) => { const qq = qpAt(z, ws, wb); return { z0, z1, ze: z, qp: qq.qp, wD: cscd * qq.qp * cpeA(wc.D, A) }; });
+        if (prof.length > 1) Dd.steps.push(['h > b: profil z<sub>e</sub> na ścianie nawietrznej wg rys. 7.4 (' + prof.length + ' pasy): ' + Dd.profile.map(p => F(p.z0, 1) + '–' + F(p.z1, 1) + ' m: q<sub>p</sub> = ' + F(p.qp, 3)).join('; '), 'PN-EN 1991-1-4, 7.2.2(1), rys. 7.4', '1-4:7.2.2']);
+        const fcor = wc.hd >= 5 ? 1 : wc.hd <= 1 ? 0.85 : 0.85 + 0.15 * (wc.hd - 1) / 4;
+        Dd.fcor = fcor;
+        Dd.Fnet = (cpeA(wc.D, 10) - cpeA(wc.E, 10)) * q.qp * cscd * fcor;
+        Dd.steps.push(['brak pełnej korelacji parcia D i ssania E: (c<sub>pe,D</sub> − c<sub>pe,E</sub>)·q<sub>p</sub>·c<sub>s</sub>c<sub>d</sub>·' + F(fcor, 3) + ' = ' + F(Dd.Fnet, 3) + ' kN/m² rzutu ściany (siła wypadkowa na budynek)', 'PN-EN 1991-1-4, 7.2.2(3)', '1-4:7.2.2']);
+        dirs.push(Dd);
+      });
       r.def = 'D';
     } else if (c.type === 'flat') {
       let cells, tx = '';
       const eav = c.eaves || 'sharp';
       if (eav === 'sharp') { cells = FLAT.sharp; tx = 'krawędź ostra'; }
       else if (eav === 'par') {
-        const hp = num(c.hp, 0), x = hp / h;
+        const hp = num(c.hp, 0), x = hp / Math.max(h, 1e-6);
         if (x < 0.025) cells = FLAT.sharp.map((c0, k) => lerpCell(c0, FLAT.par[0][k + 1], x / 0.025));
         else cells = interpCells(FLAT.par, x);
         tx = 'attyka h<sub>p</sub>/h = ' + F(hp, 2) + '/' + F(h, 2) + ' = ' + F(x, 3) + (x < 0.025 ? ' (interpolacja: krawędź ostra – h<sub>p</sub>/h = 0,025)' : x > 0.1 ? ' (przyjęto jak dla 0,10)' : '');
-      } else if (eav === 'cur') { const x = num(c.rr, 0) / h; cells = interpCells(FLAT.cur, x); tx = 'krawędź zaokrąglona r/h = ' + F(x, 3); }
+      } else if (eav === 'cur') { const x = num(c.rr, 0) / Math.max(h, 1e-6); cells = interpCells(FLAT.cur, x); tx = 'krawędź zaokrąglona r/h = ' + F(x, 3); }
       else { const x = num(c.am, 45); cells = interpCells(FLAT.man, x); tx = 'krawędź mansardowa α = ' + F(x, 1) + '°'; }
-      r.steps.push(['e = min(b; 2h) = ' + F(e, 2) + ' m; ' + tx + ' → c<sub>pe,10</sub>: F ' + Fs(cells[0][0], 2) + ', G ' + Fs(cells[1][0], 2) + ', H ' + Fs(cells[2][0], 2) + ', I ±0,20', 'PN-EN 1991-1-4, tabl. 7.2, rys. 7.6', '1-4:7.2.3']);
-      const zones = [
-        { z: 'F', n: cpeA(cells[0], A), p: null, dim: F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m (narożniki)' },
-        { z: 'G', n: cpeA(cells[1], A), p: null, dim: F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m' },
-        { z: 'H', n: cpeA(cells[2], A), p: null, dim: 'pas ' + F(e / 10, 2) + '–' + F(e / 2, 2) + ' m od krawędzi' },
-        { z: 'I', n: -0.2, p: 0.2, dim: 'pozostała część (> ' + F(e / 2, 2) + ' m)' }
-      ];
-      if (d <= e / 2) zones.pop();
-      r.zones = zoneResults(zones, q.qp, cpi, cscd, r);
+      r.hp = eav === 'par' ? num(c.hp, 0) : 0;
+      r.steps.push([tx + ' → c<sub>pe,10</sub>: F ' + Fs(cells[0][0], 2) + ', G ' + Fs(cells[1][0], 2) + ', H ' + Fs(cells[2][0], 2) + ', I ±0,20; c<sub>pe,1</sub>: F ' + Fs(cells[0][1], 2) + ', G ' + Fs(cells[1][1], 2) + ', H ' + Fs(cells[2][1], 2), 'PN-EN 1991-1-4, tabl. 7.2', '1-4:7.2.3']);
+      [['0', L, B, 'θ = 0° – wiatr prostopadły do L'], ['90', B, L, 'θ = 90° – wiatr równoległy do L']].forEach(([th, b, d, head]) => {
+        const Dd = mk(th, b, d, head), e = Dd.e, sfx = th === '0' ? '' : '₉₀';
+        const e10 = Math.min(e / 10, d), e2 = Math.min(e / 2, d);
+        Dd.steps.push([head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ', e/2 = ' + F(e / 2, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.6', '1-4:7.2.3']);
+        Dd.zones.push(Z('F' + sfx, 'F', cells[0], null, 'narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m (2 pola)', 2 * Math.min(e / 4, b / 2) * e10));
+        Dd.zones.push(Z('G' + sfx, 'G', cells[1], null, F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', Math.max(b - e / 2, 0) * e10));
+        Dd.zones.push(Z('H' + sfx, 'H', cells[2], null, 'pas ' + F(e / 10, 2) + '–' + F(e2, 2) + ' m od krawędzi nawietrznej', b * Math.max(e2 - e10, 0)));
+        if (d > e / 2) Dd.zones.push(Z('I' + sfx, 'I', [-0.2, -0.2], [0.2, 0.2], 'pozostała część (> ' + F(e / 2, 2) + ' m)', b * (d - e / 2)));
+        dirs.push(Dd);
+      });
       r.note = 'Strefa I: rozważa się obie wartości c<sub>pe</sub> = +0,2 i −0,2. Dla attyk o h<sub>p</sub>/h > 0,1 – jak dla 0,1.';
-      r.diag = { shape: 'flat', b, d, e };
       r.def = 'H';
     } else if (c.type === 'mono') {
       const a = clamp(num(c.a, 15), 5, 75);
       if (num(c.a, 15) < 5) r.warn.push('Dla α < 5° stosuj dach płaski (7.2.3) – przyjęto α = 5°.');
+      r.alpha = a;
       const z0 = interpZ(MONO0, a), z180 = interpZ(MONO180, a), z90 = interpZ(MONO90, a);
-      const e90 = Math.min(d, 2 * h);
-      r.steps.push(['θ = 0° i 180°: e = min(b; 2h) = ' + F(e, 2) + ' m; θ = 90°: e = min(d; 2h) = ' + F(e90, 2) + ' m; α = ' + F(a, 1) + '° (interpolacja liniowa między wartościami tego samego znaku)', 'PN-EN 1991-1-4, tabl. 7.3a, 7.3b, rys. 7.7', '1-4:7.2.4']);
-      const mk = (lbl, arr, zs) => arr.map((Z, i) => ({ z: zs[i] + lbl, n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null }));
-      r.zones = [{ head: 'θ = 0° (wiatr na niższą krawędź)' }];
-      r.zones.push(...zoneResults(mk('₀', z0, ['F', 'G', 'H']).map((z, i) => Object.assign(z, { dim: ['narożniki ' + F(e / 4, 2) + '×' + F(e / 10, 2) + ' m', 'pas e/10 = ' + F(e / 10, 2) + ' m', 'reszta połaci'][i] })), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 180° (wiatr na wyższą krawędź)' });
-      r.zones.push(...zoneResults(mk('₁₈₀', z180, ['F', 'G', 'H']), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 90° (wiatr równoległy do krawędzi)' });
-      r.zones.push(...zoneResults(mk('₉₀', z90, ['Fup', 'Flow', 'G', 'H', 'I']), q.qp, cpi, cscd, r));
-      r.diag = { shape: 'mono', b, d, e };
+      r.steps.push(['α = ' + F(a, 1) + '° – interpolacja liniowa między wartościami tego samego znaku', 'PN-EN 1991-1-4, tabl. 7.3a, 7.3b', '1-4:7.2.4']);
+      const fgh = (Dd, zz, sfx) => {
+        const e = Dd.e, b = Dd.b, d = Dd.d, e10 = Math.min(e / 10, d);
+        Dd.steps.push([Dd.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.7', '1-4:7.2.4']);
+        Dd.zones.push(Z('F' + sfx, 'F', zz[0].n, zz[0].p, 'narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m (2 pola)', 2 * Math.min(e / 4, b / 2) * e10));
+        Dd.zones.push(Z('G' + sfx, 'G', zz[1].n, zz[1].p, F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', Math.max(b - e / 2, 0) * e10));
+        Dd.zones.push(Z('H' + sfx, 'H', zz[2].n, zz[2].p, 'reszta połaci (> ' + F(e / 10, 2) + ' m)', b * Math.max(d - e10, 0)));
+      };
+      const D0 = mk('0', L, B, 'θ = 0° – wiatr na niższą krawędź'); fgh(D0, z0, '₀'); dirs.push(D0);
+      const D1 = mk('180', L, B, 'θ = 180° – wiatr na wyższą krawędź'); fgh(D1, z180, '₁₈₀'); dirs.push(D1);
+      const D2 = mk('90', B, L, 'θ = 90° – wiatr równoległy do krawędzi');
+      { const e = D2.e, b = D2.b, d = D2.d, e10 = Math.min(e / 10, d), e2 = Math.min(e / 2, d);
+        D2.steps.push([D2.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ', e/2 = ' + F(e / 2, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.7', '1-4:7.2.4']);
+        const nm = ['Fup', 'Flow', 'G', 'H', 'I'];
+        const dims = ['narożnik przy wyższej krawędzi ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'narożnik przy niższej krawędzi ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', 'pas ' + F(e / 10, 2) + '–' + F(e2, 2) + ' m', 'reszta (> ' + F(e / 2, 2) + ' m)'];
+        const areas = [Math.min(e / 4, b / 2) * e10, Math.min(e / 4, b / 2) * e10, Math.max(b - e / 2, 0) * e10, b * Math.max(e2 - e10, 0), b * Math.max(d - e / 2, 0)];
+        z90.forEach((zz, i) => { if (i === 4 && d <= e / 2) return; D2.zones.push(Z(nm[i] + '₉₀', nm[i], zz.n, zz.p, dims[i], areas[i])); });
+      }
+      dirs.push(D2);
       r.def = 'H₀';
     } else if (c.type === 'duo') {
       let a = clamp(num(c.a, 30), -45, 75);
       if (Math.abs(a) < 5) { r.warn.push('Dla |α| < 5° stosuj dach płaski (7.2.3) – przyjęto α = ' + (a < 0 ? '−5' : '5') + '°.'); a = a < 0 ? -5 : 5; }
+      r.alpha = a;
       const z0 = interpZ(DUO0, a), z90 = interpZ(DUO90, a);
-      const e90 = Math.min(d, 2 * h);
-      r.steps.push(['θ = 0°: e = min(b; 2h) = ' + F(e, 2) + ' m; θ = 90°: e = min(d; 2h) = ' + F(e90, 2) + ' m; α = ' + F(a, 1) + '°', 'PN-EN 1991-1-4, tabl. 7.4a, 7.4b, rys. 7.8', '1-4:7.2.5']);
-      const zs0 = ['F', 'G', 'H', 'I', 'J'];
-      const dims0 = ['narożniki ' + F(e / 4, 2) + '×' + F(e / 10, 2) + ' m', 'pas e/10 = ' + F(e / 10, 2) + ' m', 'reszta połaci nawietrznej', 'reszta połaci zawietrznej', 'pas e/10 przy kalenicy (zawietrzna)'];
-      r.zones = [{ head: 'θ = 0° (wiatr prostopadły do kalenicy)' }];
-      r.zones.push(...zoneResults(z0.map((Z, i) => ({ z: zs0[i] + '₀', n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null, dim: dims0[i] })), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 90° (wiatr równoległy do kalenicy)' });
-      const dims90 = ['narożniki ' + F(e90 / 4, 2) + '×' + F(e90 / 10, 2) + ' m', 'pas e/10 = ' + F(e90 / 10, 2) + ' m', 'pas e/10…e/2', 'reszta (> e/2 = ' + F(e90 / 2, 2) + ' m)'];
-      r.zones.push(...zoneResults(z90.map((Z, i) => ({ z: ['F', 'G', 'H', 'I'][i] + '₉₀', n: cpeA(Z.n, A), p: null, dim: dims90[i] })), q.qp, cpi, cscd, r));
+      r.steps.push(['α = ' + F(a, 1) + '°' + (a < 0 ? ' (dach odwrócony)' : '') + ' – interpolacja liniowa między wartościami tego samego znaku', 'PN-EN 1991-1-4, tabl. 7.4a, 7.4b', '1-4:7.2.5']);
+      const D0 = mk('0', L, B, 'θ = 0° – wiatr prostopadły do kalenicy');
+      { const e = D0.e, b = D0.b, d = D0.d, e10 = Math.min(e / 10, d / 2);
+        D0.steps.push([D0.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.8', '1-4:7.2.5']);
+        const nm = ['F', 'G', 'H', 'I', 'J'];
+        const dims = ['narożniki połaci nawietrznej ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'pas przy okapie nawietrznym ' + F(Math.max(b - e / 2, 0), 2) + ' × ' + F(e / 10, 2) + ' m', 'reszta połaci nawietrznej', 'reszta połaci zawietrznej', 'pas ' + F(e / 10, 2) + ' m przy kalenicy (zawietrzna)'];
+        const areas = [2 * Math.min(e / 4, b / 2) * e10, Math.max(b - e / 2, 0) * e10, b * Math.max(d / 2 - e10, 0), b * Math.max(d / 2 - e10, 0), b * e10];
+        z0.forEach((zz, i) => D0.zones.push(Z(nm[i] + '₀', nm[i], zz.n, zz.p, dims[i], areas[i])));
+      }
+      dirs.push(D0);
+      const D1 = mk('90', B, L, 'θ = 90° – wiatr równoległy do kalenicy');
+      { const e = D1.e, b = D1.b, d = D1.d, e10 = Math.min(e / 10, d), e2 = Math.min(e / 2, d);
+        D1.steps.push([D1.head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(e, 2) + ' m; e/4 = ' + F(e / 4, 2) + ', e/10 = ' + F(e / 10, 2) + ', e/2 = ' + F(e / 2, 2) + ' m', 'PN-EN 1991-1-4, rys. 7.8', '1-4:7.2.5']);
+        const nm = ['F', 'G', 'H', 'I'];
+        const dims = ['narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'pas e/10 przy szczycie, między F', 'pas ' + F(e / 10, 2) + '–' + F(e2, 2) + ' m', 'reszta (> ' + F(e / 2, 2) + ' m)'];
+        const areas = [2 * Math.min(e / 4, b / 2) * e10, Math.max(b - e / 2, 0) * e10, b * Math.max(e2 - e10, 0), b * Math.max(d - e / 2, 0)];
+        z90.forEach((zz, i) => { if (i === 3 && d <= e / 2) return; D1.zones.push(Z(nm[i] + '₉₀', nm[i], zz.n, null, dims[i], areas[i])); });
+      }
+      dirs.push(D1);
       r.note = 'Przy θ = 0° rozważa się 4 przypadki: największe i najmniejsze wartości stref F, G, H w połączeniu z największymi i najmniejszymi wartościami stref I, J; nie łączy się wartości dodatnich i ujemnych na tej samej połaci (7.2.5(3)).';
-      r.diag = { shape: 'duo', b, d, e };
       r.def = 'H₀';
     } else if (c.type === 'hip') {
       const a0 = clamp(num(c.a, 30), 5, 75), a90 = clamp(num(c.a90, a0), 5, 75);
       if (num(c.a, 30) < 5 || num(c.a90, 30) < 5) r.warn.push('Tablica 7.5 obejmuje α od +5° do +75°.');
+      r.alpha = a0; r.alpha90 = a90;
       const zs = ['F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
-      r.steps.push(['e = min(b; 2h) = ' + F(e, 2) + ' m; α<sub>0</sub> = ' + F(a0, 1) + '° (połać nawietrzna przy θ = 0°), α<sub>90</sub> = ' + F(a90, 1) + '° (przy θ = 90°)', 'PN-EN 1991-1-4, tabl. 7.5, rys. 7.9', '1-4:7.2.6']);
-      r.zones = [{ head: 'θ = 0°, α<sub>0</sub> = ' + F(a0, 1) + '°' }];
-      r.zones.push(...zoneResults(interpZ(HIP, a0).map((Z, i) => ({ z: zs[i] + '₀', n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null })), q.qp, cpi, cscd, r));
-      r.zones.push({ head: 'θ = 90°, α<sub>90</sub> = ' + F(a90, 1) + '°' });
-      r.zones.push(...zoneResults(interpZ(HIP, a90).map((Z, i) => ({ z: zs[i] + '₉₀', n: cpeA(Z.n, A), p: Z.p ? cpeA(Z.p, A) : null })), q.qp, cpi, cscd, r));
-      r.note = 'Rozmieszczenie stref F–N wg rys. 7.9; wymiary stref od e = ' + F(e, 2) + ' m (e/4, e/10, e/2).';
+      const dimsOf = e => ['narożniki ' + F(e / 4, 2) + ' × ' + F(e / 10, 2) + ' m', 'pas e/10 przy okapie nawietrznym', 'reszta połaci nawietrznej', 'połać zawietrzna', 'pas e/10 przy kalenicy (zawietrzna)', 'połacie boczne – przy okapie zawietrznym', 'pas e/10 wzdłuż naroży (krawędzi koszowych / grzbietów) połaci bocznych', 'połacie boczne – przy okapie nawietrznym', 'reszta połaci bocznych'];
+      [['0', L, B, a0, 'θ = 0° – wiatr na połać główną (α₀ = ' + F(a0, 1) + '°)'], ['90', B, L, a90, 'θ = 90° – wiatr na połać szczytową (α₉₀ = ' + F(a90, 1) + '°)']].forEach(([th, b, d, aa, head]) => {
+        const Dd = mk(th, b, d, head), sfx = th === '0' ? '₀' : '₉₀';
+        Dd.steps.push([head + ': b = ' + F(b, 2) + ' m, d = ' + F(d, 2) + ' m; e = min(b; 2h) = ' + F(Dd.e, 2) + ' m', 'PN-EN 1991-1-4, tabl. 7.5, rys. 7.9', '1-4:7.2.6']);
+        const dims = dimsOf(Dd.e);
+        interpZ(HIP, aa).forEach((zz, i) => Dd.zones.push(Z(zs[i] + sfx, zs[i], zz.n, zz.p, dims[i], NaN)));
+        dirs.push(Dd);
+      });
+      r.note = 'Rozmieszczenie stref F–N wg rys. 7.9 (na schemacie strefy K–N zaznaczono poglądowo); wymiary stref od e (e/4, e/10).';
       r.def = 'H₀';
     }
+    dirs.forEach(Dd => { Dd.rows = zoneResults(Dd.zones, q.qp, cpi, cscd, r, Dd); if (Dd.Fnet !== undefined) r.vals.push({ key: 'DEnet' + (Dd.th === '0' ? '' : '₉₀'), label: 'D + E – wypadkowe (z f<sub>kor</sub>), θ = ' + Dd.th + '°', v: Dd.Fnet, vmin: Dd.Fnet, unit: 'kN/m²', wind: true }); });
+    r.dirs = dirs;
+    r.common = r.steps.slice();
+    r.nCommon = nCommon;
+    dirs.forEach(Dd => r.steps.push(...Dd.steps));
+    r.zones = dirs.length > 1 ? dirs.flatMap(Dd => [{ head: Dd.head }].concat(Dd.rows)) : dirs[0].rows;
+    r.diag = { shape: c.type, dirs: true };
     return finWind(r, f);
   }
   if (c.type === 'canopy1' || c.type === 'canopy2') {
@@ -901,7 +939,7 @@ function windCalc(c, ws, fIn) {
     let a = num(c.a, duo ? 10 : 5);
     const ze = zOver !== null ? zOver : h;
     const q = qpAt(ze, ws, wb);
-    r.qp = q.qp; r.ze = ze;
+    r.qp = q.qp; r.ze = ze; r.b = b; r.d = d; r.h = h; r.alpha = a;
     r.steps.push(['z<sub>e</sub> = ' + F(ze, 2) + ' m (wysokość wiaty): ' + q.txt, q.ref, q.key]);
     const T = duo ? CANOPY2 : CANOPY1;
     if (duo && Math.abs(a) < 5) { r.warn.push('Tablica 7.7 obejmuje |α| ≥ 5° – przyjęto α = ' + (a < 0 ? '−5' : '5') + '°.'); a = a < 0 ? -5 : 5; }
@@ -918,7 +956,7 @@ function windCalc(c, ws, fIn) {
     r.zones = zn.map((z, j) => {
       const mx = cscd * vMax[j + 1] * q.qp, mn = cscd * vMin[j + 1] * q.qp;
       r.vals.push({ key: z, label: 'strefa ' + z + ' (c<sub>p,net</sub>)', v: mx, vmin: mn, unit: 'kN/m²', wind: true });
-      return { z, cpes: [vMax[j + 1], vMin[j + 1]], we: [mx, mn], max: { w: mx }, min: { w: mn }, dim: { A: 'pole ogólne', B: 'pas b/10 przy krawędzi nawietrznej/zawietrznej', C: 'pas d/10 przy krawędziach bocznych', D: 'pas przy kalenicy/koszu' }[z] };
+      return { z, cpes: [vMax[j + 1], vMin[j + 1]], we: [mx, mn], max: { w: mx }, min: { w: mn }, dim: { A: 'pole ogólne', B: 'pasy d/10 wzdłuż krawędzi nawietrznej i zawietrznej', C: 'pasy b/10 wzdłuż krawędzi bocznych', D: 'pas wzdłuż kalenicy / kosza' }[z], base: z, cand: null };
     });
     r.vals.push({ key: 'cf', label: 'c<sub>f</sub>·q<sub>p</sub> – ciśnienie wypadkowe', v: cscd * vMax[0] * q.qp, vmin: cscd * vMin[0] * q.qp, unit: 'kN/m²', wind: true });
     r.net = true;
@@ -955,7 +993,7 @@ function windCalc(c, ws, fIn) {
       const k = 'ABCD'.indexOf(z);
       const w = cscd * psis * cp[k] * q.qp;
       r.vals.push({ key: z, label: 'strefa ' + z + ' – w<sub>net</sub> (±)', v: w, vmin: -w, unit: 'kN/m²', wind: true });
-      return { z, cpes: [cp[k]], we: [w], max: { w }, min: { w: -w }, dim: F(a0, 2) + '–' + (isFinite(a1) ? F(a1, 2) : F(l, 2)) + ' m od końca' };
+      return { z, base: z, cpes: [cp[k]], we: [w], max: { w }, min: { w: -w }, dim: F(a0, 2) + '–' + (isFinite(a1) ? F(a1, 2) : F(l, 2)) + ' m od swobodnego końca', area: (Math.min(a1, l) - a0) * h };
     });
     r.net = true;
     r.steps.push(['w<sub>net</sub> = c<sub>s</sub>c<sub>d</sub>·ψ<sub>s</sub>·c<sub>p,net</sub>·q<sub>p</sub>(z<sub>e</sub>) – działa w obu kierunkach', 'PN-EN 1991-1-4, (5.1), 7.4.1', '1-4:7.4']);
