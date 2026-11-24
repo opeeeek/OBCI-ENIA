@@ -100,7 +100,23 @@ function autoGroups() {
 
 /* ---------- pliki ---------- */
 const fileBase = () => (S.meta.name || 'zestawienie-obciazen').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_').slice(0, 60);
+/* wersja online (artefakt claude.ai): pliki zapisuje się przez mechanizm pobierania artefaktu */
+async function artSave(name, data) {
+  let dl = null;
+  try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
+  if (!dl) { toast('Zapis plików jest niedostępny w tym widoku – otwórz artefakt w przeglądarce na komputerze.'); return null; }
+  try { await dl.save({ filename: name, data }); return 'download'; }
+  catch (e) {
+    const c = e && e.code;
+    if (c === 'declined') return null;
+    if (c === 'rate_limited') toast('Okno zapisu jest już otwarte – poczekaj chwilę i spróbuj ponownie.');
+    else if (c === 'host_unavailable') toast('Ta aplikacja nie zapisuje plików – otwórz artefakt w przeglądarce lub na komputerze.');
+    else toast('Nie udało się zapisać pliku (' + esc(c || 'błąd') + ').');
+    return null;
+  }
+}
 async function saveBlob(name, data, mime, desc, ext) {
+  if (ART) return artSave(name, data);
   const blob = new Blob([data], { type: mime });
   if (window.showSaveFilePicker) {
     try {
@@ -117,12 +133,14 @@ async function saveProject(as) {
   if (!as && FILE.handle && FILE.handle.createWritable) {
     try { const wr = await FILE.handle.createWritable(); await wr.write(data); await wr.close(); toast('Zapisano: ' + esc(FILE.name)); return; } catch (e) { }
   }
-  const h = await saveBlob(fileBase() + '.obc', data, 'application/json', 'Projekt ObciążeniaEC', '.obc');
+  const ext = ART ? '.json' : '.obc';
+  const h = await saveBlob(fileBase() + ext, data, 'application/json', 'Projekt ObciążeniaEC', ext);
   if (h && h !== 'download') { FILE.handle = h; FILE.name = h.name; }
-  else if (h) FILE.name = fileBase() + '.obc';
+  else if (h) FILE.name = fileBase() + ext;
   if (h) { $('#fileName').textContent = FILE.name; toast('Zapisano projekt' + (FILE.name ? ': ' + esc(FILE.name) : '')); }
 }
 async function openProject() {
+  if (ART) { $('#fileIn').click(); return; }
   if (window.showOpenFilePicker) {
     try {
       const [h] = await window.showOpenFilePicker({ types: [{ description: 'Projekt ObciążeniaEC', accept: { 'application/json': ['.obc', '.json'] } }] });
@@ -168,7 +186,7 @@ function locSet(o) {
 function locPick(e) {
   LOC_Q = ''; LOC_RES = [];
   if (e.kind === 'miasto') locSet({ name: e.n, desc: (String(e.pow).includes('prawach') ? e.pow : 'miasto, pow. ' + e.pow) + ', woj. ' + e.woj, kind: 'miasto', lat: e.lat, lon: e.lon, A: e.A, src: 'baza miast', aNote: e.A >= 300 ? 'Wysokość A = ' + e.A + ' m dotyczy centrum miejscowości – dla działki w terenie górzystym sprawdź rzędną terenu.' : '' });
-  else locSet({ name: 'gm. ' + e.n, desc: e.kind + ', pow. ' + e.pow + ', woj. ' + e.woj, kind: 'gmina', lat: e.lat, lon: e.lon, A: null, keepA: true, src: 'punkt środkowy gminy (PRG)', gs: e.s, gw: e.w, aNote: 'Dla gminy nie ustala się wysokości – wpisz A dla miejsca budowy lub pobierz ją z internetu.' });
+  else locSet({ name: 'gm. ' + e.n, desc: e.kind + ', pow. ' + e.pow + ', woj. ' + e.woj, kind: 'gmina', lat: e.lat, lon: e.lon, A: null, keepA: true, src: 'punkt środkowy gminy (PRG)', gs: e.s, gw: e.w, aNote: 'Dla gminy nie ustala się wysokości – wpisz A dla miejsca budowy' + (ART ? '.' : ' lub pobierz ją z internetu.') });
 }
 async function fetchElev(lat, lon) {
   try {
@@ -207,6 +225,7 @@ async function fetchElev(lat, lon) {
     if (lon < 13.8 || lon > 24.5 || lat < 48.8 || lat > 55.2) return;
     const la = +lat.toFixed(5), lo = +lon.toFixed(5);
     locSet({ name: '', desc: 'punkt wskazany na mapie', kind: 'punkt', lat: la, lon: lo, A: null, keepA: true, zoom: false, src: 'mapa', aNote: 'Wysokość A pozostawiono bez zmian (' + (isNum(S.loc.A) ? F(S.loc.A, 0) + ' m' : 'brak') + ') – sprawdź rzędną terenu dla wskazanego miejsca (pobieram z internetu…).' });
+    if (ART) { S.loc.aNote = 'Wpisz rzędną terenu A dla wskazanego miejsca (pole „wysokość terenu n.p.m.”).'; changed(S.ui.tab === 'proj'); return; }
     fetchElev(la, lo).then(A => {
       if (S.loc.lat !== la || S.loc.lon !== lo) return;
       if (!isNum(A)) { S.loc.aNote = 'Nie udało się pobrać wysokości (brak internetu) – wpisz rzędną terenu A dla wskazanego miejsca.'; changed(S.ui.tab === 'proj'); return; }
@@ -289,6 +308,7 @@ function about() {
   <p><b>Automatyzacja:</b> lokalizacja → strefy i wysokość; kreator tworzy pełne zestawienie budynku; każdą wartość (γ, grubości, współczynniki, ψ, γ, strefy, q<sub>p</sub>) można zmienić ręcznie.</p>
   <p><b>Skróty:</b> Ctrl+S – zapisz, Ctrl+Shift+S – zapisz jako, Ctrl+O – otwórz, Ctrl+N – nowy, Ctrl+P – drukuj raport; Ctrl+kółko na mapie – powiększenie.</p>
   <p><b>Dane:</b> mapy stref i baza miejscowości – z programu ObciążeniaEC1 (granice wg map ZK do PN-EN 1991-1-3 i 1991-1-4 z pasami przejściowymi, gminy PRG 2025, wysokości Copernicus DEM). Ciężary: PN-EN 1991-1-1 zał. A oraz dane orientacyjne (literatura, producenci).</p>
+  ${ART ? '<p><b>Wersja online:</b> projekt zapisujesz jako plik .json (przycisk Zapisz) i wczytujesz przyciskiem Otwórz; bieżący projekt zostaje też w pamięci tej przeglądarki. Raport zapisz jako HTML i wydrukuj z przeglądarki do PDF. Pełna wersja desktopowa (Windows) jest w repozytorium projektu.</p>' : ''}
   <p class="hint">Program wspomaga projektanta – nie zastępuje jego oceny ani tekstu norm. Objaśnienia punktów norm są streszczeniami własnymi.</p>
   <div class="dact"><button class="btn pri" data-act="mclose">Zamknij</button></div>`);
 }
@@ -347,7 +367,7 @@ document.addEventListener('click', e => {
     case 'open': openProject(); return;
     case 'save': saveProject(false); return;
     case 'saveas': saveProject(true); return;
-    case 'print': showTab('rep'); setTimeout(() => window.print(), 250); return;
+    case 'print': showTab('rep'); if (ART) { toast('Drukowanie nie działa w podglądzie online – zapisz raport HTML i wydrukuj go z przeglądarki.'); return; } setTimeout(() => window.print(), 250); return;
     case 'exporthtml': saveBlob(fileBase() + '_raport.html', repHTMLDoc(), 'text/html', 'Raport HTML', '.html').then(h => { if (h) toast('Zapisano raport HTML.'); }); return;
     case 'csv': saveBlob(fileBase() + '_zestawienie.csv', buildCSV(), 'text/csv', 'Arkusz CSV', '.csv').then(h => { if (h) toast('Zapisano zestawienie CSV.'); }); return;
     case 'theme': cycleTheme(); return;
@@ -412,7 +432,7 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); }
   else if (k === 'o') { e.preventDefault(); openProject(); }
-  else if (k === 'p') { e.preventDefault(); showTab('rep'); setTimeout(() => window.print(), 250); }
+  else if (k === 'p' && !ART) { e.preventDefault(); showTab('rep'); setTimeout(() => window.print(), 250); }
   else if (k === 'n' && e.altKey === false && e.shiftKey === false) { /* Ctrl+N bywa zarezerwowane przez przeglądarkę */ }
 });
 /* rozdzielacz paneli */
@@ -431,7 +451,7 @@ $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeM
 /* ---------- start ---------- */
 (function boot() {
   let th = ''; try { th = localStorage.getItem(LS_THEME) || ''; } catch (e) { }
-  applyTheme(th);
+  if (ART) document.documentElement.classList.add('oec-art'); else applyTheme(th);
   S = loadState() || example();
   R = compute();
   $('#projName').value = S.meta.name || '';

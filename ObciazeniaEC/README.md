@@ -9,8 +9,9 @@ Program do kompletnego zestawiania obciążeń konstrukcji budowlanych w Polsce 
 | `dist/ObciazeniaEC.exe` | wersja dla Windows 10/11 (WebView2, jak BelkaŻB), z ikoną aplikacji. Dane robocze: `%AppData%\ObciazeniaEC`. |
 | `dist/ObciazeniaEC.html` | ten sam program jako jeden plik – otwórz w Edge/Chrome/Firefox (działa offline). |
 | `src/index.html` | wersja źródłowa (moduły w `src/js/`). |
+| `dist/ObciazeniaEC-online.html` | wariant online (artefakt claude.ai): bez szkieletu dokumentu, z flagą `window.__OEC_ARTIFACT`. Projekt zapisuje się jako `.json`, raport jako HTML/CSV przez mechanizm pobierania artefaktu; brak druku z poziomu podglądu (raport HTML drukuje się z przeglądarki) i pobierania wysokości terenu z internetu (A wpisuje się ręcznie); motyw jasny/ciemny jak w przeglądarce. |
 
-Budowanie: `node build.js` (HTML) lub `./build-desktop.sh` (HTML + EXE, wymaga Go). Testy: `npm test`.
+Budowanie: `node build.js` (HTML + wariant online) lub `./build-desktop.sh` (HTML + EXE, wymaga Go). Testy: `npm test`.
 
 ## Zakres
 

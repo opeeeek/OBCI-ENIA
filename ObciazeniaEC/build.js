@@ -20,3 +20,18 @@ fs.mkdirSync(path.join(__dirname, 'dist'), { recursive: true });
 const out = path.join(__dirname, 'dist', 'ObciazeniaEC.html');
 fs.writeFileSync(out, html);
 console.log('zapisano', out, (html.length / 1024).toFixed(0) + ' kB', files.length + ' skryptów');
+
+/* wariant online (artefakt claude.ai): bez szkieletu dokumentu (dodaje go platforma), z flagą trybu online */
+let art = html
+  .replace(/^<!doctype html>\s*/i, '')
+  .replace(/<html[^>]*>\s*<head>\s*/i, '')
+  .replace(/<meta charset="utf-8">\s*/i, '')
+  .replace(/<meta name="viewport"[^>]*>\s*/i, '')
+  .replace(/<\/head>\s*<body>\s*/i, '\n')
+  .replace(/\s*<\/body>\s*<\/html>\s*$/i, '\n');
+art = art.replace('<script>/* ', '<script>window.__OEC_ARTIFACT = true;</script>\n<script>/* ');
+if (!art.includes('window.__OEC_ARTIFACT = true;')) throw new Error('brak flagi trybu online');
+if (!/^<title>/.test(art)) throw new Error('tytuł musi być na początku pliku artefaktu');
+const outA = path.join(__dirname, 'dist', 'ObciazeniaEC-online.html');
+fs.writeFileSync(outA, art);
+console.log('zapisano', outA, (art.length / 1024).toFixed(0) + ' kB (artefakt)');

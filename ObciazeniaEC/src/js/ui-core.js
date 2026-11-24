@@ -12,6 +12,7 @@ const fin = x => isNum(x) ? String(+x.toFixed(6)).replace('.', ',') : '';
 const pnum = s => { if (s == null) return NaN; s = String(s).trim().replace(/\s/g, '').replace(',', '.').replace('−', '-'); if (s === '' || s === '-') return NaN; const v = Number(s); return isFinite(v) ? v : NaN; };
 const today = () => { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); };
 const LS_KEY = 'obciazeniaEC.v1', LS_THEME = 'obciazeniaEC.theme';
+const ART = !!window.__OEC_ARTIFACT;   // wersja online (artefakt claude.ai)
 const PSI_DEF = JSON.parse(JSON.stringify(EC.PSI));
 const COLS = ['perm', 'imp', 'snow', 'wind', 'therm', 'groups'];
 const SYM = { perm: 'G', imp: 'Q', snow: 'S', wind: 'W', therm: 'T', groups: 'Σ' };
